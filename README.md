@@ -142,7 +142,7 @@ The project is developed using GitHub and DevOps collaboration practices.
 | Paul                | DevOps Lead — Repository setup, CI, branch protection            |
 | Mika Rurangwa       | Backend Developer — Express API, data storage, endpoints         |
 | Monica Akoi Dau Ahol| Frontend & Documentation — UI, README, sample data               |
-| Cletus              | TBD                                                               |
+| Cletus Ayeebo Abugre             | TBD                                                               |
 
 ---
 
