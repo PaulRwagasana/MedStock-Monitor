@@ -38,7 +38,7 @@ Many community pharmacies across Africa still manage medicine inventory using pa
 | Frontend        | HTML, CSS, JavaScript                |
 | Data Storage    | JSON (initial prototype)             |
 | Version Control | Git & GitHub                         |
-| Future Database | SQLite / MongoDB                     |
+| Future Database | Postgres
 | Deployment      | Designed for future containerization |
 
 ---
