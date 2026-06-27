@@ -135,6 +135,7 @@ async function submitAddMedicine(e) {
   else alert('Failed to add medicine.');
 }
 
+function hideBanner() {
   document.getElementById('alertBanner').classList.add('hidden');
 }
 
