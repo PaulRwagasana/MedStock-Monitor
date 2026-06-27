@@ -1,0 +1,10 @@
+[
+  { "id": 1, "name": "Amoxicillin", "category": "Antibiotic", "quantity": 120, "threshold": 20, "unit": "capsules" },
+  { "id": 2, "name": "Paracetamol", "category": "Analgesic", "quantity": 15, "threshold": 30, "unit": "tablets" },
+  { "id": 3, "name": "Artemether", "category": "Antimalarial", "quantity": 60, "threshold": 25, "unit": "tablets" },
+  { "id": 4, "name": "Metformin", "category": "Antidiabetic", "quantity": 8, "threshold": 20, "unit": "tablets" },
+  { "id": 5, "name": "Omeprazole", "category": "Antacid", "quantity": 75, "threshold": 15, "unit": "capsules" },
+  { "id": 6, "name": "Cotrimoxazole", "category": "Antibiotic", "quantity": 10, "threshold": 25, "unit": "tablets" },
+  { "id": 7, "name": "Ibuprofen", "category": "Analgesic", "quantity": 90, "threshold": 20, "unit": "tablets" },
+  { "id": 8, "name": "ORS Sachets", "category": "Rehydration", "quantity": 5, "threshold": 30, "unit": "sachets" }
+]
