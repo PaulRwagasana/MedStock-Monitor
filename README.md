@@ -1,10 +1,10 @@
-# MedStock Monitor
+# 💊 MedStock Monitor
 
 > **Empowering local pharmacies with real-time inventory visibility and automated stock alerts.**
 
 ---
 
-# Problem Statement
+## Problem Statement
 
 Many community pharmacies across Africa still manage medicine inventory using paper records or disconnected spreadsheets. These manual processes often lead to inaccurate stock records, unexpected medicine shortages, delayed patient care, and inefficient inventory management.
 
@@ -12,50 +12,52 @@ Many community pharmacies across Africa still manage medicine inventory using pa
 
 ---
 
-# Target Users
+## Target Users
 
-* **Pharmacists and Pharmacy Technicians** – Manage daily medicine inventory and update stock after dispensing or receiving supplies.
-* **Pharmacy Owners and Managers** – Monitor inventory levels and make informed restocking decisions.
-* **Small Community Clinics** – Track essential medicines available for patient care.
-
----
-
-# Core Features
-
-1. **Medicine Stock Search** – View the current quantity and availability of medicines.
-2. **Inventory Adjustment** – Increase or decrease stock quantities after receiving or dispensing medicines.
-3. **Low-Stock Alerts** – Identify medicines that fall below a predefined stock threshold.
-4. **Medicine Categorization** – Organize medicines by category such as Antibiotics, Analgesics, and Antimalarials.
-5. **Simple Web Interface** – A browser-based interface for searching and updating inventory.
+| User | Description |
+|------|-------------|
+| Pharmacists & Technicians | Manage daily inventory, update stock after dispensing or receiving supplies |
+| Pharmacy Owners & Managers | Monitor stock levels and make informed restocking decisions |
+| Small Community Clinics | Track essential medicines available for patient care |
 
 ---
 
-# Technology Stack
+## Core Features
 
-| Layer           | Technology                           |
-| --------------- | ------------------------------------ |
-| Backend         | Node.js (Express)                    |
-| Frontend        | HTML, CSS, JavaScript                |
-| Data Storage    | JSON (initial prototype)             |
-| Version Control | Git & GitHub                         |
-| Future Database | SQLite / MongoDB                     |
-| Deployment      | Designed for future containerization |
+1. **Medicine Stock Search** – Search medicines by name or view the full inventory list.
+2. **Inventory Adjustment** – Increase or decrease stock quantities after dispensing or receiving supplies.
+3. **Low-Stock Alerts** – Instantly identify medicines that have fallen below the minimum threshold.
+4. **Medicine Categorization** – Medicines organized by category (Antibiotics, Analgesics, Antimalarials, etc.).
+5. **Simple Web Interface** – Clean, browser-based UI — no installation required for end users.
 
 ---
 
-# Project Structure
+## Technology Stack
+
+| Layer | Technology |
+|-------|------------|
+| Backend | Node.js (Express) |
+| Frontend | HTML, CSS, JavaScript |
+| Data Storage | JSON (prototype) |
+| Version Control | Git & GitHub |
+| Future Database | SQLite / MongoDB |
+| Deployment | Designed for containerization |
+
+---
+
+## Project Structure
 
 ```text
 MedStock-Monitor/
 │
-├── app.js
+├── app.js                  # Express server & API routes
 ├── package.json
 ├── data/
-│   └── medicines.json
+│   └── medicines.json      # Medicine inventory dataset
 ├── frontend/
-│   ├── index.html
-│   ├── style.css
-│   └── script.js
+│   ├── index.html          # Main UI page
+│   ├── style.css           # Purple-themed stylesheet
+│   └── script.js           # API calls & dynamic rendering
 ├── .github/
 │   └── CODEOWNERS
 ├── .gitignore
@@ -65,14 +67,14 @@ MedStock-Monitor/
 
 ---
 
-# How to Run the Application
+## How to Run the Application
 
-## Prerequisites
+### Prerequisites
 
-* Node.js (v18 or later)
-* npm
+- Node.js (v18 or later)
+- npm
 
-## Installation
+### Installation
 
 ```bash
 git clone https://github.com/Monica486-bot/MedStock-Monitor
@@ -81,71 +83,96 @@ npm install
 node app.js
 ```
 
-## Access the Application
+### Access the Application
 
-* Frontend: http://localhost:5000
-* API: http://localhost:5000/api/medicines
-
----
-
-# Initial Functional Scope (Formative 1)
-
-The first submission focuses on delivering a working prototype with the following functionality:
-
-* View all medicines
-* Search a medicine by name or ID
-* Update medicine stock quantity
-* Store inventory data using a local JSON file
-
-Additional features such as low-stock notifications, reporting, authentication, Docker deployment, and cloud infrastructure will be implemented in later stages of the project.
+| Interface | URL |
+|-----------|-----|
+| Frontend  | http://localhost:5000 |
+| All medicines | http://localhost:5000/api/medicines |
+| Single medicine | http://localhost:5000/api/medicines/:id |
+| Low stock | http://localhost:5000/api/medicines/low-stock |
 
 ---
 
-# Planned API Endpoints
+## API Endpoints
 
-| Method | Endpoint                    | Purpose                            |
-| ------ | --------------------------- | ---------------------------------- |
-| GET    | `/api/medicines`            | Retrieve all medicines             |
-| GET    | `/api/medicines/:id`        | Retrieve one medicine              |
-| POST   | `/api/medicines/:id/adjust` | Update stock quantity              |
-| GET    | `/api/medicines/low-stock`  | Retrieve medicines below threshold |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/medicines` | Retrieve all medicines (supports `?name=` query) |
+| GET | `/api/medicines/:id` | Retrieve a single medicine by ID |
+| POST | `/api/medicines/:id/adjust` | Adjust stock quantity (`{ "adjustment": 10 }`) |
+| GET | `/api/medicines/low-stock` | Retrieve all medicines below their threshold |
 
----
+### Example: Adjust Stock
 
-# Future Microservices Architecture
-
-This project is designed to evolve into a microservices architecture consisting of:
-
-* **Inventory Service** – Manages medicine records and stock quantities.
-* **Alert Service** – Detects medicines below critical stock levels.
-* **Reporting Service** – Generates inventory reports and usage summaries.
+```bash
+curl -X POST http://localhost:5000/api/medicines/1/adjust \
+  -H "Content-Type: application/json" \
+  -d '{"adjustment": -10}'
+```
 
 ---
 
-# Team Collaboration
+## Sample Medicine Dataset
 
-The project is developed using GitHub and DevOps collaboration practices.
+The app ships with 8 pre-loaded medicines covering common categories in African community pharmacies:
 
-* GitHub Projects (Kanban) for task management
-* Feature branches for development
-* Pull Requests for all code changes
-* Branch protection on the `main` branch
-* Code review before merging
-* Equal contribution from all team members
-
----
-
-# Team
-
-| Member              | Role                                                              |
-| ------------------- | ----------------------------------------------------------------- |
-| Paul                | DevOps Lead — Repository setup, CI, branch protection            |
-| Mika Rurangwa       | Backend Developer — Express API, data storage, endpoints         |
-| Monica Akoi Dau Ahol| Frontend & Documentation — UI, README, sample data               |
-| Cletus              | TBD                                                               |
+| Name | Category | Initial Qty | Threshold |
+|------|----------|-------------|-----------|
+| Amoxicillin | Antibiotic | 120 | 20 |
+| Paracetamol | Analgesic | 15 | 30 |
+| Artemether | Antimalarial | 60 | 25 |
+| Metformin | Antidiabetic | 8 | 20 |
+| Omeprazole | Antacid | 75 | 15 |
+| Cotrimoxazole | Antibiotic | 10 | 25 |
+| Ibuprofen | Analgesic | 90 | 20 |
+| ORS Sachets | Rehydration | 5 | 30 |
 
 ---
 
-# License
+## Initial Functional Scope (Formative 1)
 
-This project is licensed under the MIT License.
+- View all medicines
+- Search a medicine by name
+- Update medicine stock quantity
+- Identify low-stock medicines
+- Store inventory data using a local JSON file
+
+Additional features — authentication, reporting, Docker deployment, and cloud infrastructure — will be implemented in later formatives.
+
+---
+
+## Future Microservices Architecture
+
+| Service | Responsibility |
+|---------|----------------|
+| Inventory Service | Manages medicine records and stock quantities |
+| Alert Service | Detects medicines below critical stock levels |
+| Reporting Service | Generates inventory reports and usage summaries |
+
+---
+
+## Team Collaboration
+
+- GitHub Projects (Kanban) for task management
+- Feature branches for all development work
+- Pull Requests required for merging into `main`
+- Branch protection enforced on `main`
+- Code review required before merge
+
+---
+
+## Team
+
+| Member | Role |
+|--------|------|
+| Paul | DevOps Lead — Repository setup, CI, branch protection |
+| Mika Rurangwa | Backend Developer — Express API, data storage, endpoints |
+| Monica Akoi Dau Ahol | Frontend & Documentation — UI, README, sample data |
+| Cletus | TBD |
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
