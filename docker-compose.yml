@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+
+  backend:
+    build:
+      context: ./backend
+
+    container_name: medstock-backend
+
+    ports:
+      - "5000:5000"
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: password
+      DB_NAME: medstock
+
+    depends_on:
+      - postgres
+
+    restart: always  # Restart the backend automatically if it crashes
+
+  postgres:
+    image: postgres:15
+
+    container_name: medstock-db
+
+    restart: always  # Restart the database automatically if it crashes
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: medstock
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
