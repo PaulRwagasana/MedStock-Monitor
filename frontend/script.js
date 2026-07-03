@@ -70,9 +70,9 @@ function renderTable(medicines, title, showAlert) {
   }
 
   tbody.innerHTML = medicines.map(m => {
-    const isLow = m.quantity < m.threshold_quantity;
-    const qty = m.quantity ?? m.current_quantity ?? 0;
-    const threshold = m.threshold_quantity ?? m.threshold ?? 0;
+    const isLow = m.quantity < m.threshold;
+    const qty = m.quantity ?? 0;
+    const threshold = m.threshold ?? 0;
     const unit = m.unit ?? '';
     return `
       <tr>
@@ -147,14 +147,6 @@ async function submitAddMedicine(e) {
   });
   if (res.ok) { closeModal(); loadMedicines(); }
   else alert('Failed to add medicine.');
-}
-
-function createMedicine(data) {
-  return fetch(API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
 }
 
 function hideBanner() {

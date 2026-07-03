@@ -18,7 +18,7 @@ const getMedicineById = async (id) => {
 
 // Add new medicine
 const addMedicine = async (medicine) => {
-  const { name, category, quantity, threshold } = medicine;
+  const { name, category, quantity, threshold, unit } = medicine;
 
   if (!name || !category) {
     throw new Error("Name and category are required");
@@ -29,6 +29,7 @@ const addMedicine = async (medicine) => {
     category,
     quantity: quantity || 0,
     threshold: threshold || 10,
+    unit: unit || 'units',
   });
 };
 
