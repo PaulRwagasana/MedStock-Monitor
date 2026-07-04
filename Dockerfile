@@ -20,5 +20,9 @@ USER node
 # ---- 6. Document the port the app listens on ----
 EXPOSE 5000
 
-# ---- 7. Start the server ----
+# ---- 7. Check the container is healthy ----
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:5000', r => process.exit(r.statusCode === 200 ? 0 : 1))"
+
+# ---- 8. Start the server ----
 CMD ["node", "server.js"]
