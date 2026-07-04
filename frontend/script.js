@@ -1,4 +1,4 @@
-const API = '/api/medicines';
+const API = 'http://localhost:5000/api/medicines';
 
 async function fetchJSON(url) {
   const res = await fetch(url);
