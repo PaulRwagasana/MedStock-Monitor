@@ -1,28 +1,35 @@
 # Containerizes the Node/Express API (backend/).
 
-# ---- 1. Base image ----
-FROM node:20-slim
+# ---- Stage 1: Install dependencies ----
+FROM node:20-slim AS builder
 
-# ---- 2. Working directory ----
 WORKDIR /app
 
-# ---- 3. Install dependencies first ----
+# Copy package files and install dependencies
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# ---- 4. Copy application source code ----
+# ---- Stage 2: Production image ----
+FROM node:20-slim AS production
+
+WORKDIR /app
+
+# Copy only the installed dependencies from the builder stage
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy application source code
 COPY . .
 
-# ---- 5. Run as a non-root user (security) ----
+# Run as a non-root user for security
 RUN chown -R node:node /app
 USER node
 
-# ---- 6. Document the port the app listens on ----
+# Document the port the app listens on
 EXPOSE 5000
 
-# ---- 7. Check the container is healthy ----
+# Check the container is healthy
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD node -e "require('http').get('http://localhost:5000', r => process.exit(r.statusCode === 200 ? 0 : 1))"
 
-# ---- 8. Start the server ----
+# Start the server
 CMD ["node", "server.js"]
