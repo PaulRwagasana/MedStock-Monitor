@@ -38,10 +38,10 @@ Many community pharmacies across Africa still manage medicine inventory using pa
 |-------|------------|
 | Backend | Node.js (Express) |
 | Frontend | HTML, CSS, JavaScript |
-| Data Storage | JSON (prototype) |
+| Database | PostgreSQL |
 | Version Control | Git & GitHub |
-| Future Database | SQLite / MongoDB |
-| Deployment | Designed for containerization |
+| Containerization | Docker & Docker Compose |
+| CI/CD | GitHub Actions |
 
 ---
 
@@ -50,16 +50,35 @@ Many community pharmacies across Africa still manage medicine inventory using pa
 ```text
 MedStock-Monitor/
 │
-├── app.js                  # Express server & API routes
-├── package.json
-├── data/
-│   └── medicines.json      # Medicine inventory dataset
+├── backend/
+│   ├── src/
+│   │   ├── config/
+│   │   │   └── db.js               # PostgreSQL connection pool
+│   │   ├── controllers/
+│   │   │   └── medicineController.js
+│   │   ├── middlewares/
+│   │   │   └── errorHandler.js
+│   │   ├── models/
+│   │   │   └── medicineModel.js    # SQL queries
+│   │   ├── routes/
+│   │   │   └── medicineRoutes.js
+│   │   └── services/
+│   │       └── medicineService.js
+│   ├── migrations/
+│   │   └── 001_create_tables.sql   # Schema & seed data
+│   ├── app.js
+│   ├── server.js
+│   ├── Dockerfile
+│   └── package.json
 ├── frontend/
-│   ├── index.html          # Main UI page
-│   ├── style.css           # Purple-themed stylesheet
-│   └── script.js           # API calls & dynamic rendering
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+├── docker-compose.yml
+├── .env.example
 ├── .github/
-│   └── CODEOWNERS
+│   └── workflows/
+│       └── node.js.yml             # CI pipeline
 ├── .gitignore
 ├── LICENSE
 └── README.md
@@ -69,28 +88,57 @@ MedStock-Monitor/
 
 ## How to Run the Application
 
-### Prerequisites
+### Option 1 — Docker (Recommended)
 
-- Node.js (v18 or later)
-- npm
+#### Prerequisites
 
-### Installation
+- Docker
+- Docker Compose
+
+#### Steps
 
 ```bash
-git clone https://github.com/Monica486-bot/MedStock-Monitor
+git clone https://github.com/PaulRwagasana/MedStock-Monitor
 cd MedStock-Monitor
+cp .env.example .env        # fill in your values
+docker compose up --build
+```
+
+The API will be available at `http://localhost:5000` and PostgreSQL will start automatically alongside it.
+
+> Note: Never commit your `.env` file. It is listed in `.gitignore`.
+
+### Option 2 — Run Locally (Without Docker)
+
+#### Prerequisites
+
+- Node.js (v18 or later)
+- PostgreSQL (running locally)
+
+#### Steps
+
+```bash
+git clone https://github.com/PaulRwagasana/MedStock-Monitor
+cd MedStock-Monitor/backend
+cp ../.env.example .env        # then fill in your local DB credentials
 npm install
-node app.js
+npm start
+```
+
+Run the migration to create the database schema:
+
+```bash
+psql -U <your_db_user> -d <your_db_name> -f migrations/001_create_tables.sql
 ```
 
 ### Access the Application
 
 | Interface | URL |
 |-----------|-----|
-| Frontend  | http://localhost:5000 |
+| Frontend | http://localhost:5000 |
 | All medicines | http://localhost:5000/api/medicines |
 | Single medicine | http://localhost:5000/api/medicines/:id |
-| Low stock | http://localhost:5000/api/medicines/low-stock |
+| Low stock | http://localhost:5000/api/medicines/alerts/low-stock |
 
 ---
 
@@ -98,47 +146,78 @@ node app.js
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/medicines` | Retrieve all medicines (supports `?name=` query) |
+| GET | `/api/medicines` | Retrieve all medicines |
+| GET | `/api/medicines/search?name=` | Search medicines by name |
+| GET | `/api/medicines/alerts/low-stock` | Retrieve all medicines below their threshold |
+| GET | `/api/medicines/category/:category` | Retrieve medicines by category |
 | GET | `/api/medicines/:id` | Retrieve a single medicine by ID |
-| POST | `/api/medicines/:id/adjust` | Adjust stock quantity (`{ "adjustment": 10 }`) |
-| GET | `/api/medicines/low-stock` | Retrieve all medicines below their threshold |
+| POST | `/api/medicines` | Add a new medicine |
+| PUT | `/api/medicines/:id` | Update a medicine record |
+| DELETE | `/api/medicines/:id` | Delete a medicine |
+| PATCH | `/api/medicines/:id/add-stock` | Increase stock (`{ "amount": 10 }`) |
+| PATCH | `/api/medicines/:id/reduce-stock` | Decrease stock (`{ "amount": 5 }`) |
 
-### Example: Adjust Stock
+### Example: Add Stock
 
 ```bash
-curl -X POST http://localhost:5000/api/medicines/1/adjust \
+curl -X PATCH http://localhost:5000/api/medicines/1/add-stock \
   -H "Content-Type: application/json" \
-  -d '{"adjustment": -10}'
+  -d '{"amount": 10}'
+```
+
+### Example: Search
+
+```bash
+curl http://localhost:5000/api/medicines/search?name=para
 ```
 
 ---
 
 ## Sample Medicine Dataset
 
-The app ships with 8 pre-loaded medicines covering common categories in African community pharmacies:
+The migration seed data includes medicines covering common categories in African community pharmacies:
 
 | Name | Category | Initial Qty | Threshold |
 |------|----------|-------------|-----------|
-| Amoxicillin | Antibiotic | 120 | 20 |
-| Paracetamol | Analgesic | 15 | 30 |
-| Artemether | Antimalarial | 60 | 25 |
-| Metformin | Antidiabetic | 8 | 20 |
-| Omeprazole | Antacid | 75 | 15 |
-| Cotrimoxazole | Antibiotic | 10 | 25 |
-| Ibuprofen | Analgesic | 90 | 20 |
-| ORS Sachets | Rehydration | 5 | 30 |
+| Paracetamol | Analgesics | 120 | 20 |
+| Amoxicillin | Antibiotics | 30 | 15 |
+| Coartem | Antimalarials | 8 | 10 |
+| Ibuprofen | Analgesics | 65 | 20 |
+| Metformin | Diabetes | 40 | 15 |
 
 ---
 
-## Initial Functional Scope (Formative 1)
+## Formative 1 — Core Inventory System
 
 - View all medicines
 - Search a medicine by name
 - Update medicine stock quantity
 - Identify low-stock medicines
-- Store inventory data using a local JSON file
+- Frontend dashboard with purple-themed UI
+- Data stored in a local JSON file (prototype)
 
-Additional features — authentication, reporting, Docker deployment, and cloud infrastructure — will be implemented in later formatives.
+## Formative 2 — CI Pipeline & Containerization
+
+- Migrated data storage from JSON to PostgreSQL
+- Dockerized the backend application
+- Added Docker Compose for multi-service orchestration (app + database)
+- CI pipeline via GitHub Actions — runs on every push and PR to `main`
+- Database schema managed via SQL migration file
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in your values:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DB_HOST` | PostgreSQL host | `localhost` or `db` (Docker) |
+| `DB_PORT` | PostgreSQL port | `5432` |
+| `DB_USER` | Database user | `postgres` |
+| `DB_PASSWORD` | Database password | `yourpassword` |
+| `DB_NAME` | Database name | `medstock` |
+| `PORT` | API server port | `5000` |
 
 ---
 
@@ -166,10 +245,39 @@ Additional features — authentication, reporting, Docker deployment, and cloud 
 
 | Member | Role |
 |--------|------|
-| Paul | DevOps Lead — Repository setup, CI, branch protection |
+| Paul Rwagasana | DevOps Lead — Repository setup, CI, branch protection |
 | Mika Rurangwa | Backend Developer — Express API, data storage, endpoints |
 | Monica Akoi Dau Ahol | Frontend & Documentation — UI, README, sample data |
-| Cletus | TBD |
+| Cletus Ayeebo Abugre | Frontend Styling — UI design, CSS, visual presentation |
+
+---
+
+## Usage
+
+### View All Medicines
+Open http://localhost:5000 in your browser to see the full inventory dashboard.
+
+### Search a Medicine
+Type a medicine name in the search bar to filter results in real time.
+
+### Add a Medicine
+Click the **Add Medicine** button, fill in the form and click **Add Medicine** to save.
+
+### Adjust Stock
+Enter a positive number (e.g. `10`) to increase stock or use the reduce option with a positive number (e.g. `5`) to decrease stock, then click **Update**.
+
+### Delete a Medicine
+Click the **Delete** button on any row and confirm to remove it from inventory.
+
+### View Low Stock
+Click **Low Stock** in the sidebar to see all medicines below their minimum threshold.
+
+---
+
+## Links
+
+- [GitHub Projects Board](https://github.com/users/PaulRwagasana/projects/2)
+- [Team Participation Sheet](https://docs.google.com/spreadsheets/d/1blNfxmnIE4V08rAdkrFbVRxIW0tneXAPW_wd-nVdoM0/edit?gid=0#gid=0)
 
 ---
 
