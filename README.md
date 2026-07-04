@@ -68,17 +68,18 @@ MedStock-Monitor/
 │   │   └── 001_create_tables.sql   # Schema & seed data
 │   ├── app.js
 │   ├── server.js
-│   ├── Dockerfile
 │   └── package.json
 ├── frontend/
 │   ├── index.html
 │   ├── style.css
 │   └── script.js
+├── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
+├── .dockerignore
 ├── .github/
 │   └── workflows/
-│       └── node.js.yml             # CI pipeline
+│       └── ci.yml             # CI pipeline
 ├── .gitignore
 ├── LICENSE
 └── README.md
