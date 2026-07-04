@@ -21,14 +21,14 @@ const getMedicineById = async (id) => {
 
 // Add medicine
 const addMedicine = async (medicine) => {
-  const { name, category, quantity, threshold } = medicine;
+  const { name, category, quantity, threshold, unit } = medicine;
 
   const result = await db.query(
     `INSERT INTO medicines
-    (name, category, quantity, threshold)
-    VALUES ($1,$2,$3,$4)
+    (name, category, quantity, threshold, unit)
+    VALUES ($1,$2,$3,$4,$5)
     RETURNING *`,
-    [name, category, quantity, threshold]
+    [name, category, quantity, threshold, unit]
   );
 
   return result.rows[0];
