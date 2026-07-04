@@ -26,7 +26,7 @@ router.get("/category/:category", medicineController.getByCategory);
 router.get("/:id", medicineController.getMedicineById);
 
 // Create a new medicine
-router.post("/", medicineController.createMedicine);
+router.post("/", medicineController.addMedicine);
 
 // Update a medicine
 router.put("/:id", medicineController.updateMedicine);
