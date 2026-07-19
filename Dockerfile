@@ -14,6 +14,9 @@ FROM node:20-slim AS production
 
 WORKDIR /app
 
+# Apply latest OS security patches 
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
 # Copy only the installed dependencies from the builder stage
 COPY --from=builder /app/node_modules ./node_modules
 
