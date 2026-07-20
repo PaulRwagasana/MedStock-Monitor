@@ -46,6 +46,18 @@ variable "nsg_name" {
   default     = "nsg-medstock-dev"
 }
 
+variable "public_ip_name" {
+  description = "Name of the public IP resource."
+  type        = string
+  default     = "pip-medstock-dev"
+}
+
+variable "nic_name" {
+  description = "Name of the network interface."
+  type        = string
+  default     = "nic-medstock-dev"
+}
+
 variable "allowed_source_ip" {
   description = "CIDR block allowed to reach the application over SSH and HTTP."
   type        = string

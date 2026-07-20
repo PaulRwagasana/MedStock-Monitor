@@ -19,21 +19,25 @@ This folder contains a starter Terraform configuration for the networking layer 
 ## Usage
 
 1. Change into this directory:
+
    ```bash
    cd terraform
    ```
 
 2. Initialize Terraform:
+
    ```bash
    terraform init
    ```
 
 3. Review the planned resources:
+
    ```bash
    terraform plan -var="resource_group_name=rg-medstock-dev" -var="location=eastus"
    ```
 
 4. Apply the configuration:
+
    ```bash
    terraform apply -var="resource_group_name=rg-medstock-dev" -var="location=eastus"
    ```

@@ -27,3 +27,13 @@ output "network_security_group_id" {
   description = "The ID of the network security group attached to the subnet."
   value       = azurerm_network_security_group.nsg.id
 }
+
+output "public_ip_address" {
+  description = "The public IP address assigned to the network interface."
+  value       = azurerm_public_ip.public_ip.ip_address
+}
+
+output "network_interface_id" {
+  description = "The ID of the network interface."
+  value       = azurerm_network_interface.nic.id
+}
