@@ -1,0 +1,29 @@
+---
+app_name: medstock-monitor
+db_container_name: medstock-db
+network_name: medstock-network
+
+github_org: paulrwagasana
+image_tag: ci
+app_image: "ghcr.io/{{ github_org }}/{{ app_name }}:{{ image_tag }}"
+
+ghcr_package_is_private: false
+
+container_port: 5000
+app_port: 5000
+
+db_name: medstock
+db_user: postgres
+
+base_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - docker.io
+  - python3-docker
+  - ufw
+  - fail2ban
+
+allowed_ports:
+  - 22
+  - "{{ app_port }}"

@@ -1,0 +1,153 @@
+---
+- name: Configure the MedStock Monitor server
+  hosts: medstock
+  become: true
+
+  tasks:
+    - name: Refresh the apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install base packages
+      ansible.builtin.apt:
+        name: "{{ base_packages }}"
+        state: present
+
+    - name: Configure the Docker daemon for nested containers
+      ansible.builtin.copy:
+        content: |
+          {
+            "storage-driver": "vfs"
+          }
+        dest: /etc/docker/daemon.json
+        mode: "0644"
+      when: ansible_virtualization_type in ['docker', 'container', 'containerd']
+      notify: Restart docker
+
+    - name: Apply the daemon config before anything depends on it
+      ansible.builtin.meta: flush_handlers
+
+    - name: Ensure Docker is running and starts on boot
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Let the login user run Docker without sudo
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    - name: Allow SSH and the app port through UFW
+      community.general.ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop: "{{ allowed_ports }}"
+
+    - name: Set UFW default policy to deny incoming
+      community.general.ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+    - name: Disable SSH root login
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?PermitRootLogin"
+        line: "PermitRootLogin no"
+      notify: Restart sshd
+
+    - name: Disable SSH password authentication
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "^#?PasswordAuthentication"
+        line: "PasswordAuthentication no"
+      notify: Restart sshd
+
+    - name: Ensure fail2ban is running and enabled
+      ansible.builtin.service:
+        name: fail2ban
+        state: started
+        enabled: true
+
+    - name: Log in to GitHub Container Registry
+      community.docker.docker_login:
+        registry_url: ghcr.io
+        username: "{{ github_org }}"
+        password: "{{ vault_ghcr_token }}"
+      when: ghcr_package_is_private | bool
+
+    - name: Create the Docker network for the app and database
+      community.docker.docker_network:
+        name: "{{ network_name }}"
+        state: present
+
+    - name: Run the Postgres container
+      community.docker.docker_container:
+        name: "{{ db_container_name }}"
+        image: "postgres:15"
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: "{{ network_name }}"
+        env:
+          POSTGRES_USER: "{{ db_user }}"
+          POSTGRES_PASSWORD: "{{ vault_db_password }}"
+          POSTGRES_DB: "{{ db_name }}"
+        volumes:
+          - "medstock_pg_data:/var/lib/postgresql/data"
+
+    - name: Wait for Postgres to accept connections
+      ansible.builtin.command:
+        cmd: docker exec {{ db_container_name }} pg_isready -U {{ db_user }}
+      register: pg_ready
+      until: pg_ready.rc == 0
+      retries: 10
+      delay: 3
+      changed_when: false
+
+    - name: Deploy MedStock Monitor
+      community.docker.docker_container:
+        name: "{{ app_name }}"
+        image: "{{ app_image }}"
+        pull: true
+        state: started
+        restart_policy: unless-stopped
+        networks:
+          - name: "{{ network_name }}"
+        ports:
+          - "{{ app_port }}:{{ container_port }}"
+        env:
+          PORT: "{{ container_port | string }}"
+          DB_HOST: "{{ db_container_name }}"
+          DB_PORT: "5432"
+          DB_USER: "{{ db_user }}"
+          DB_PASSWORD: "{{ vault_db_password }}"
+          DB_NAME: "{{ db_name }}"
+
+    - name: Wait for MedStock Monitor to answer
+      ansible.builtin.uri:
+        url: "http://localhost:{{ app_port }}/"
+        status_code: 200
+      register: health
+      retries: 10
+      delay: 3
+      until: health is succeeded
+
+    - name: Show what the app said
+      ansible.builtin.debug:
+        msg: "{{ health.json }}"
+
+  handlers:
+    - name: Restart docker
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+    - name: Restart sshd
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
