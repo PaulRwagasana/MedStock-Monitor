@@ -56,6 +56,13 @@ against the Node.js Security Advisory database. A clean result here means our
 direct application dependencies carry no known exploitable vulnerabilities
 at the time of submission.
 
+**Scope:** Production dependencies only (`--omit=dev`). DevDependencies
+(Jest, ESLint, Supertest) are excluded from audit since they never run
+in the production container. A HIGH finding in `brace-expansion` was
+identified in Jest's internal `test-exclude` dependency this is
+documented as an accepted risk since it cannot be exploited through
+any production code path.
+
 ---
 
 ## Scan 2: Container Image Vulnerabilities (Trivy)
