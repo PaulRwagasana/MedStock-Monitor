@@ -71,6 +71,31 @@ jobs:
         run: npm audit --audit-level=high
         working-directory: backend
 
+  iac-scan:
+    name: IaC Security Scan (Checkov)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Checkov IaC scan
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform/
+          framework: terraform
+          output_format: cli
+          output_file_path: checkov-results.txt
+          soft_fail: true
+
+      - name: Upload Checkov scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: checkov-results
+          path: checkov-results.txt
+          retention-days: 7
+
   docker-build:
     name: Docker Build Check
     runs-on: ubuntu-latest
