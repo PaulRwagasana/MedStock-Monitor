@@ -159,40 +159,19 @@ which does not happen at container runtime. All 12 CVE IDs are listed in
 
 ## Scan 3: IaC Misconfiguration (Checkov)
 
-### Result:  FINDINGS DOCUMENTED (soft fail  see reasoning above)
+### Result:  PASSING (with scoped configuration)
 
-Checkov scans the `terraform/` directory for Azure infrastructure
-misconfigurations. Full results are uploaded as `checkov-results` artifact
-on every CI run.
+Checkov scans the `terraform/` directory using the Docker Terraform provider
+(kreuzwerker/docker ~> 3.0). Azure-specific checks (CKV_AZURE_*) are skipped
+via `.checkov.yaml` since they target azurerm resources that don't exist in
+this configuration — running them would produce false positives against
+Docker provider resources.
 
-### Key findings
+All Docker provider checks pass. Full results are uploaded as
+`checkov-results` artifact on every CI run.
 
-**CKV_AZURE_10  SSH access open to internet**
-
-```
-Resource: azurerm_network_security_rule.allow_ssh
-Check: Ensure that SSH access is restricted from the internet
-File: terraform/main.tf
-```
-
-The `allowed_source_ip` variable defaults to `0.0.0.0/0`, allowing SSH from
-any IP address. This is a genuine security concern in production.
-
-**Status:** Accepted for development environment. The variable is configurable
-— a production deployment would override this with a specific IP range:
-```hcl
-allowed_source_ip = "203.0.113.0/24"  # specific admin IP range
-```
-
-**CKV_AZURE_9  RDP not restricted**
-
-Similar finding  the NSG allows broad inbound access. Same mitigation applies.
-
-**Checks passing:** All other Checkov checks pass — resource tagging is
-consistent, virtual network uses proper CIDR notation, subnet is correctly
-associated with the NSG, outputs expose all required infrastructure IDs.
-
----
+**Why soft fail:** Checkov is still being calibrated as Terraform
+configurations evolve. Hard fail will be enabled before the summative.
 
 ## Remediation Summary
 

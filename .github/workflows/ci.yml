@@ -87,6 +87,7 @@ jobs:
           output_format: cli
           output_file_path: checkov-results.txt
           soft_fail: true
+          config_file: .checkov.yaml
 
       - name: Upload Checkov scan results
         uses: actions/upload-artifact@v4
