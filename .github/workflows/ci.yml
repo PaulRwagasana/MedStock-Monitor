@@ -8,9 +8,6 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
-
 jobs:
   lint-and-test:
     name: Lint & Test (Node ${{ matrix.node-version }})
@@ -51,10 +48,58 @@ jobs:
           path: backend/coverage/
           retention-days: 7
 
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: backend
+
+      - name: Run dependency audit (npm audit)
+        run: npm audit --audit-level=high --omit=dev
+        working-directory: backend
+
+  iac-scan:
+    name: IaC Security Scan (Checkov)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Checkov IaC scan
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform/
+          framework: terraform
+          output_format: cli
+          output_file_path: checkov-results.txt
+          soft_fail: true
+
+      - name: Upload Checkov scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: checkov-results
+          path: checkov-results.txt
+          retention-days: 7
+
   docker-build:
     name: Docker Build Check
     runs-on: ubuntu-latest
-    needs: lint-and-test
+    needs: [lint-and-test, security-scan]
     permissions:
       contents: read
       packages: write
@@ -64,10 +109,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set lowercase image name
-        run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/medstock-monitor" >> $GITHUB_ENV
+        run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/medstock-monitor:ci" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
-        if: github.event_name == 'push'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -75,10 +119,27 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Docker image
-        run: docker build -f Dockerfile -t ${{ env.IMAGE }}:ci -t ${{ env.IMAGE }}:${{ github.sha }} ./backend
+        run: docker build -f Dockerfile -t ${{ env.IMAGE }} ./backend
+
+      - name: Scan Docker image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE }}
+          format: table
+          exit-code: 1
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+          trivyignores: .trivyignore
+          output: trivy-results.txt
+
+      - name: Upload Trivy scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-scan-results
+          path: trivy-results.txt
+          retention-days: 7
 
       - name: Push Docker image
         if: github.event_name == 'push'
-        run: |
-          docker push ${{ env.IMAGE }}:ci
-          docker push ${{ env.IMAGE }}:${{ github.sha }}
+        run: docker push ${{ env.IMAGE }}
