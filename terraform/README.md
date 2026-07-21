@@ -1,20 +1,19 @@
 # Terraform Networking for MedStock Monitor
 
-This folder contains a starter Terraform configuration for the networking layer of the MedStock Monitor project.
+This folder contains a Docker-based Terraform configuration for the networking layer of the MedStock Monitor project.
 
 ## What it creates
 
-- An Azure resource group
-- A virtual network with a custom address space
-- One application subnet
-- A network security group with inbound rules for SSH, HTTP, HTTPS, and the application port
-- Outputs for the key networking values
+- A Docker network shared by the application services
+- A PostgreSQL container for the database
+- A backend container for the application
+- Port mappings so the services are reachable from the host machine
+- Outputs for the main container and network values
 
 ## Prerequisites
 
 - Terraform >= 1.5
-- An Azure account
-- Azure CLI signed in to your account
+- Docker Engine or Docker Desktop running locally
 
 ## Usage
 
@@ -33,16 +32,23 @@ This folder contains a starter Terraform configuration for the networking layer 
 3. Review the planned resources:
 
    ```bash
-   terraform plan -var="resource_group_name=rg-medstock-dev" -var="location=eastus"
+   terraform plan
    ```
 
 4. Apply the configuration:
 
    ```bash
-   terraform apply -var="resource_group_name=rg-medstock-dev" -var="location=eastus"
+   terraform apply
+   ```
+
+5. Check the running containers:
+
+   ```bash
+   docker ps
+   docker network ls
    ```
 
 ## Notes
 
-- Replace the example values with your own environment-specific settings.
-- The default source IP for ingress is set to `0.0.0.0/0` for simplicity; in production, this should be restricted to your own IP range.
+- The default database credentials are simple example values and should be changed for a real deployment.
+- The backend image is expected to be available locally or buildable through Docker before applying the configuration.

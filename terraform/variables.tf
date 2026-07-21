@@ -1,81 +1,83 @@
-variable "resource_group_name" {
-  description = "Name of the Azure resource group for the MedStock infrastructure."
+variable "network_name" {
+  description = "Name of the Docker network used by the MedStock services."
   type        = string
-  default     = "rg-medstock-dev"
+  default     = "medstock-network"
 }
 
-variable "location" {
-  description = "Azure region for all resources."
+variable "backend_container_name" {
+  description = "Name of the backend container."
   type        = string
-  default     = "eastus"
+  default     = "medstock-backend"
 }
 
-variable "environment" {
-  description = "Deployment environment tag."
+variable "postgres_container_name" {
+  description = "Name of the PostgreSQL container."
   type        = string
-  default     = "dev"
+  default     = "medstock-db"
 }
 
-variable "vnet_name" {
-  description = "Name of the virtual network."
+variable "postgres_image_name" {
+  description = "Docker image for PostgreSQL."
   type        = string
-  default     = "vnet-medstock-dev"
+  default     = "postgres"
 }
 
-variable "vnet_address_space" {
-  description = "Address space for the virtual network."
-  type        = list(string)
-  default     = ["10.10.0.0/16"]
-}
-
-variable "subnet_name" {
-  description = "Name of the application subnet."
+variable "postgres_image_tag" {
+  description = "Tag for the PostgreSQL image."
   type        = string
-  default     = "snet-app"
+  default     = "15"
 }
 
-variable "subnet_address_prefixes" {
-  description = "CIDR block for the application subnet."
-  type        = list(string)
-  default     = ["10.10.1.0/24"]
-}
-
-variable "nsg_name" {
-  description = "Name of the network security group."
+variable "backend_image_name" {
+  description = "Docker image for the backend application."
   type        = string
-  default     = "nsg-medstock-dev"
+  default     = "medstock-backend"
 }
 
-variable "public_ip_name" {
-  description = "Name of the public IP resource."
+variable "backend_image_tag" {
+  description = "Tag for the backend image."
   type        = string
-  default     = "pip-medstock-dev"
+  default     = "local"
 }
 
-variable "nic_name" {
-  description = "Name of the network interface."
-  type        = string
-  default     = "nic-medstock-dev"
-}
-
-variable "allowed_source_ip" {
-  description = "CIDR block allowed to reach the application over SSH and HTTP."
-  type        = string
-  default     = "0.0.0.0/0"
-}
-
-variable "app_port" {
-  description = "Port used by the application backend."
+variable "backend_internal_port" {
+  description = "Port exposed inside the backend container."
   type        = number
   default     = 5000
 }
 
-variable "tags" {
-  description = "Tags applied to all resources."
-  type        = map(string)
-  default = {
-    project     = "medstock-monitor"
-    environment = "dev"
-    managedBy   = "terraform"
-  }
+variable "backend_external_port" {
+  description = "Host port mapped to the backend container."
+  type        = number
+  default     = 5000
+}
+
+variable "postgres_external_port" {
+  description = "Host port mapped to PostgreSQL."
+  type        = number
+  default     = 5432
+}
+
+variable "db_user" {
+  description = "Database username for the application."
+  type        = string
+  default     = "medstock"
+}
+
+variable "db_password" {
+  description = "Database password for the application."
+  type        = string
+  default     = "medstockpass"
+}
+
+variable "db_name" {
+  description = "Database name for the application."
+  type        = string
+  default     = "medstock"
+}
+
+variable "environment" {
+  description = "Deployment environment label."
+  type        = string
+  default     = "dev"
 }

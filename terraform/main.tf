@@ -1,116 +1,61 @@
-resource "azurerm_resource_group" "rg" {
-  name     = var.resource_group_name
-  location = var.location
-  tags     = var.tags
+resource "docker_network" "medstock_network" {
+  name            = var.network_name
+  check_duplicate = true
 }
 
-resource "azurerm_virtual_network" "vnet" {
-  name                = var.vnet_name
-  address_space       = var.vnet_address_space
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  tags                = var.tags
+resource "docker_image" "postgres" {
+  name         = "${var.postgres_image_name}:${var.postgres_image_tag}"
+  keep_locally = false
 }
 
-resource "azurerm_subnet" "app_subnet" {
-  name                 = var.subnet_name
-  resource_group_name  = azurerm_resource_group.rg.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = var.subnet_address_prefixes
+resource "docker_image" "backend" {
+  name         = "${var.backend_image_name}:${var.backend_image_tag}"
+  keep_locally = false
 }
 
-resource "azurerm_network_security_group" "nsg" {
-  name                = var.nsg_name
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  tags                = var.tags
-}
+resource "docker_container" "postgres" {
+  name    = var.postgres_container_name
+  image   = docker_image.postgres.image_id
+  restart = "always"
 
-resource "azurerm_network_security_rule" "allow_ssh" {
-  name                        = "allow-ssh"
-  priority                    = 1001
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_range      = "22"
-  source_address_prefix       = var.allowed_source_ip
-  destination_address_prefix  = "*"
-  resource_group_name         = azurerm_resource_group.rg.name
-  network_security_group_name = azurerm_network_security_group.nsg.name
-}
+  env = [
+    "POSTGRES_USER=${var.db_user}",
+    "POSTGRES_PASSWORD=${var.db_password}",
+    "POSTGRES_DB=${var.db_name}"
+  ]
 
-resource "azurerm_network_security_rule" "allow_http" {
-  name                        = "allow-http"
-  priority                    = 1002
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_range      = "80"
-  source_address_prefix       = var.allowed_source_ip
-  destination_address_prefix  = "*"
-  resource_group_name         = azurerm_resource_group.rg.name
-  network_security_group_name = azurerm_network_security_group.nsg.name
-}
+  networks_advanced {
+    name = docker_network.medstock_network.name
+  }
 
-resource "azurerm_network_security_rule" "allow_https" {
-  name                        = "allow-https"
-  priority                    = 1003
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_range      = "443"
-  source_address_prefix       = var.allowed_source_ip
-  destination_address_prefix  = "*"
-  resource_group_name         = azurerm_resource_group.rg.name
-  network_security_group_name = azurerm_network_security_group.nsg.name
-}
-
-resource "azurerm_network_security_rule" "allow_app" {
-  name                        = "allow-app"
-  priority                    = 1004
-  direction                   = "Inbound"
-  access                      = "Allow"
-  protocol                    = "Tcp"
-  source_port_range           = "*"
-  destination_port_range      = tostring(var.app_port)
-  source_address_prefix       = var.allowed_source_ip
-  destination_address_prefix  = "*"
-  resource_group_name         = azurerm_resource_group.rg.name
-  network_security_group_name = azurerm_network_security_group.nsg.name
-}
-
-resource "azurerm_subnet_network_security_group_association" "subnet_nsg_assoc" {
-  subnet_id                 = azurerm_subnet.app_subnet.id
-  network_security_group_id = azurerm_network_security_group.nsg.id
-}
-
-resource "azurerm_public_ip" "public_ip" {
-  name                = var.public_ip_name
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  allocation_method   = "Static"
-  sku                 = "Standard"
-  tags                = var.tags
-}
-
-resource "azurerm_network_interface" "nic" {
-  name                = var.nic_name
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  tags                = var.tags
-
-  ip_configuration {
-    name                          = "internal"
-    subnet_id                     = azurerm_subnet.app_subnet.id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = azurerm_public_ip.public_ip.id
+  ports {
+    internal = 5432
+    external = var.postgres_external_port
   }
 }
 
-resource "azurerm_network_interface_security_group_association" "nic_nsg_assoc" {
-  network_interface_id      = azurerm_network_interface.nic.id
-  network_security_group_id = azurerm_network_security_group.nsg.id
+resource "docker_container" "backend" {
+  name    = var.backend_container_name
+  image   = docker_image.backend.image_id
+  restart = "always"
+
+  env = [
+    "PORT=${var.backend_internal_port}",
+    "DB_HOST=${docker_container.postgres.name}",
+    "DB_PORT=5432",
+    "DB_USER=${var.db_user}",
+    "DB_PASSWORD=${var.db_password}",
+    "DB_NAME=${var.db_name}"
+  ]
+
+  networks_advanced {
+    name = docker_network.medstock_network.name
+  }
+
+  ports {
+    internal = var.backend_internal_port
+    external = var.backend_external_port
+  }
+
+  depends_on = [docker_container.postgres]
 }
