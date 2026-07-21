@@ -1,88 +1,19 @@
 # 🌐 Terraform — MedStock Monitor Networking
 
-> **Provisions the Azure networking infrastructure for the MedStock Monitor application.**
+This folder contains a Docker-based Terraform configuration for the networking layer of the MedStock Monitor project.
 
 ---
 
-## Overview
-
-This directory contains the Terraform configuration for the MedStock Monitor networking layer on Azure. It sets up the virtual network, subnet, security rules, public IP, and network interface needed to host the application.
-
----
-
-## What It Provisions
-
-| Resource | Name | Description |
-|----------|------|-------------|
-| Resource Group | `rg-medstock-dev` | Container for all Azure resources |
-| Virtual Network | `vnet-medstock-dev` | Isolated network (`10.10.0.0/16`) |
-| Subnet | `snet-app` | Application subnet (`10.10.1.0/24`) |
-| Network Security Group | `nsg-medstock-dev` | Firewall rules for inbound traffic |
-| NSG Rules | allow-ssh, allow-http, allow-https, allow-app | Opens ports 22, 80, 443, 5000 |
-| Public IP | `pip-medstock-dev` | Static public IP for the server |
-| Network Interface | `nic-medstock-dev` | Connects the VM to the subnet and public IP |
-
----
+- A Docker network shared by the application services
+- A PostgreSQL container for the database
+- A backend container for the application
+- Port mappings so the services are reachable from the host machine
+- Outputs for the main container and network values
 
 ## Prerequisites
 
-- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5
-- An active Azure account
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) installed and signed in
-
-Sign in before running any commands:
-
-```bash
-az login
-```
-
----
-
-## How to Run
-
-### 1. Change into this directory
-
-```bash
-cd terraform
-```
-
-### 2. Copy the example variables file
-
-```bash
-cp terraform.tfvars.example terraform.tfvars
-```
-
-Fill in your values. Never commit `terraform.tfvars` — it is listed in `.gitignore`.
-
-### 3. Initialize Terraform
-
-```bash
-terraform init
-```
-
-### 4. Review the plan
-
-```bash
-terraform plan -var-file="terraform.tfvars"
-```
-
-### 5. Apply
-
-```bash
-terraform apply -var-file="terraform.tfvars"
-```
-
-Type `yes` when prompted. Key infrastructure details will be printed as outputs on completion.
-
-### 6. Destroy when done
-
-```bash
-terraform destroy -var-file="terraform.tfvars"
-```
-
----
-
-## Variables
+- Terraform >= 1.5
+- Docker Engine or Docker Desktop running locally
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -119,7 +50,9 @@ terraform destroy -var-file="terraform.tfvars"
 
 ---
 
-## File Structure
+   ```bash
+   terraform plan
+   ```
 
 ```text
 terraform/
@@ -131,10 +64,18 @@ terraform/
 └── README.md                 # This file
 ```
 
----
+   ```bash
+   terraform apply
+   ```
+
+5. Check the running containers:
+
+   ```bash
+   docker ps
+   docker network ls
+   ```
 
 ## Security Notes
 
-- Never commit `terraform.tfvars` — it is gitignored
-- All resources are tagged with `managedBy = "terraform"` for traceability
-- Restrict `allowed_source_ip` to a known IP range before any production deployment
+- The default database credentials are simple example values and should be changed for a real deployment.
+- The backend image is expected to be available locally or buildable through Docker before applying the configuration.
