@@ -23,6 +23,9 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy application source code
 COPY . .
 
+# Remove bundled npm CLI which is unused at runtime to resolve tar/brace-expansion CVEs
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
 # Run as a non-root user for security
 RUN chown -R node:node /app
 USER node
