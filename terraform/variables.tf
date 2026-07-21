@@ -1,81 +1,65 @@
-variable "resource_group_name" {
-  description = "Name of the Azure resource group for the MedStock infrastructure."
+# ============================================================
+# variables.tf
+# Member 1 - Shared Terraform Variables (Docker)
+# ============================================================
+
+variable "network_name" {
+  description = "Name of the Docker bridge network."
   type        = string
-  default     = "rg-medstock-dev"
+  default     = "medstock-network"
 }
 
-variable "location" {
-  description = "Azure region for all resources."
+variable "backend_container_name" {
+  description = "Name of the backend application container."
   type        = string
-  default     = "eastus"
+  default     = "medstock-backend"
 }
 
-variable "environment" {
-  description = "Deployment environment tag."
+variable "postgres_container_name" {
+  description = "Name of the PostgreSQL container."
   type        = string
-  default     = "dev"
+  default     = "medstock-db"
 }
 
-variable "vnet_name" {
-  description = "Name of the virtual network."
+variable "backend_image" {
+  description = "Backend application image."
   type        = string
-  default     = "vnet-medstock-dev"
+  default     = "ghcr.io/cletusaabugre/medstock-monitor:ci"
 }
 
-variable "vnet_address_space" {
-  description = "Address space for the virtual network."
-  type        = list(string)
-  default     = ["10.10.0.0/16"]
-}
-
-variable "subnet_name" {
-  description = "Name of the application subnet."
-  type        = string
-  default     = "snet-app"
-}
-
-variable "subnet_address_prefixes" {
-  description = "CIDR block for the application subnet."
-  type        = list(string)
-  default     = ["10.10.1.0/24"]
-}
-
-variable "nsg_name" {
-  description = "Name of the network security group."
-  type        = string
-  default     = "nsg-medstock-dev"
-}
-
-variable "public_ip_name" {
-  description = "Name of the public IP resource."
-  type        = string
-  default     = "pip-medstock-dev"
-}
-
-variable "nic_name" {
-  description = "Name of the network interface."
-  type        = string
-  default     = "nic-medstock-dev"
-}
-
-variable "allowed_source_ip" {
-  description = "CIDR block allowed to reach the application over SSH and HTTP."
-  type        = string
-  default     = "0.0.0.0/0"
-}
-
-variable "app_port" {
-  description = "Port used by the application backend."
+variable "backend_internal_port" {
+  description = "Port exposed inside the backend container."
   type        = number
   default     = 5000
 }
 
-variable "tags" {
-  description = "Tags applied to all resources."
-  type        = map(string)
-  default = {
-    project     = "medstock-monitor"
-    environment = "dev"
-    managedBy   = "terraform"
-  }
+variable "backend_external_port" {
+  description = "Port exposed on the host."
+  type        = number
+  default     = 5000
+}
+
+variable "postgres_port" {
+  description = "PostgreSQL port."
+  type        = number
+  default     = 5432
+}
+
+variable "db_name" {
+  description = "PostgreSQL database name."
+  type        = string
+  default     = "medstock"
+}
+
+variable "db_user" {
+  description = "PostgreSQL username."
+  type        = string
+  default     = "postgres"
+}
+
+variable "db_password" {
+  description = "PostgreSQL password."
+  type        = string
+  sensitive   = true
+  default     = "postgres"
 }
