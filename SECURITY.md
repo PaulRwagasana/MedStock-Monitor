@@ -96,6 +96,36 @@ These are **npm's own internal bundled dependencies** not our application
 packages. They appear at `/usr/local/lib/` not `/app/node_modules/`, confirming
 they belong to the npm tool itself rather than our codebase.
 
+**Original approach vs. final fix:** The initial 12 CVEs were suppressed
+via `.trivyignore` with documented reasoning (npm is never invoked at
+runtime, container runs as non-root, no endpoint exposes npm). When a
+routine Trivy DB refresh surfaced 3 *new* CVE IDs against the same
+underlying npm-bundled packages, it confirmed that suppressing by CVE ID
+was a moving target new disclosures against the same unused component
+would keep appearing indefinitely. We addressed the root cause instead:
+
+```dockerfile
+# Remove bundled npm CLI which is unused at runtime to resolve tar/brace-expansion CVEs
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+```
+
+added to the production stage of the Dockerfile, after `COPY . .` and before
+`USER node`. Since the container's only runtime command is `node server.js`,
+npm was never needed in the final image. Removing it eliminates the entire
+class of vulnerability rather than accepting ongoing risk from it.
+
+**Note on `.trivyignore`:** the original 12 CVE entries are now redundant
+(the packages they refer to no longer exist in the scanned image) and can
+be cleaned up in a future pass  left in place for now since they're
+harmless and preserve the audit trail of what was previously found.
+
+**Mitigations in place:**
+- npm CLI removed entirely from the production image nothing left to scan or exploit
+- Container runs as non-root user (`USER node`) limiting blast radius
+- Multi-stage build keeps build-time tooling out of the shipped image
+
+---
+
 | Package | CVE | Severity | Location |
 |---|---|---|---|
 | cross-spawn 7.0.3 | CVE-2024-21538 | HIGH | npm internal |
