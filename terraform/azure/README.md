@@ -27,7 +27,7 @@ Directory layout
     - compute/          # Private VM, NIC, private IP, VM scale set optional
     - db/               # Azure Database for PostgreSQL Flexible Server (private access)
     - registry/         # Azure Container Registry (ACR) + RA assignments
-    - iam/              # Managed identities or service principal role assignments
+    - iam/              # CI/CD service principal role assignments (AcrPush, RG Reader)
   - examples/
     - simple.tfvars     # example var values for quick testing
   - README.md           # (this file)
@@ -57,12 +57,21 @@ Module responsibilities (recommended)
   - Create an Azure Container Registry (sku = Standard or Premium for geo-replication if required).
   - Disable the admin user. Use a service principal or managed identity for authentication.
   - Optionally create an offline replication or retention policy per assignment requirements.
+  - Assigns `AcrPull` to the application VM managed identity (owned by the registry module).
+
+- iam:
+  - Does **not** create VMs, ACR, PostgreSQL, networking, or bastion resources.
+  - Assigns least-privilege Azure RBAC to the CI/CD service principal against existing resources:
+    - `AcrPush` on the existing ACR (`module.registry.acr_id`)
+    - optional `Reader` on the existing resource group
+  - Controlled by root variables `ci_principal_id`, `enable_ci_acr_push`, and `enable_ci_rg_reader`.
 
 Security & Access
 - Use managed identities for the VM to authenticate to ACR (preferred) and avoid storing credentials on the VM.
 - Use private endpoints for both ACR and PostgreSQL to keep traffic inside the VNet.
 - Use Azure Key Vault to store secrets (DB password) and reference them in your Ansible playbook or VM provisioning.
 - Harden NSGs: allow only necessary inbound ports, and limit SSH to known IP addresses.
+- Use a dedicated CI/CD service principal with `AcrPush` (via `modules/iam`) instead of enabling the ACR admin user.
 
 Remote State
 - Store Terraform state in an Azure Storage Account with blob container and enable `resource_lock` if possible.
@@ -78,8 +87,48 @@ Remote State
   }
 
 Authentication for CI/CD
-- For GitHub Actions CD workflow, create an Azure service principal with least privilege (contributor to target RG or specific resources), and store `AZURE_CREDENTIALS` in GitHub Secrets (JSON output from `az ad sp create-for-rbac`), or use the `azure/login` action.
-- For ACR push/pull: configure `AZURE_ACR_LOGIN_SERVER`, and authenticate using `az acr login` or `docker login` with `az acr login` credentials in the workflow.
+- Create a CI/CD service principal with least privilege (prefer `AcrPush` + `Reader`, not broad Contributor):
+
+```bash
+az ad sp create-for-rbac \
+  --name "medstock-github-ci" \
+  --role Reader \
+  --scopes "/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP>" \
+  --sdk-auth
+```
+
+- Store the JSON output as the GitHub Secret `AZURE_CREDENTIALS` (used by `azure/login`).
+- Copy the service principal **object id** into Terraform:
+
+```bash
+az ad sp show --id <APP_ID> --query id -o tsv   # -> ci_principal_id
+```
+
+- Set `ci_principal_id` in `terraform.tfvars` so `modules/iam` can grant `AcrPush` on ACR (and optional RG `Reader` if not already granted by `create-for-rbac`).
+- After `terraform apply`, map outputs to GitHub Secrets (see table below). Use `az acr login` / Azure login in workflows — keep ACR admin disabled.
+
+## GitHub Secrets mapping
+
+| GitHub Secret | Source | How to obtain |
+|---------------|--------|---------------|
+| `AZURE_CREDENTIALS` | CI/CD service principal | JSON from `az ad sp create-for-rbac --sdk-auth` (not a Terraform output) |
+| `ACR_LOGIN_SERVER` | Terraform output `acr_login_server` | `terraform output -raw acr_login_server` |
+| `DB_HOST` | Terraform output `db_fqdn` | `terraform output -raw db_fqdn` |
+| `DB_USER` | Terraform output `db_username` | `terraform output -raw db_username` |
+| `DB_PORT` | Terraform output `db_port` | `terraform output -raw db_port` (always `5432`) |
+| `DB_PASSWORD` | Same value as `db_administrator_password` | From your secret store / `terraform.tfvars` (do not commit) |
+| `DB_NAME` | Application convention | Usually `medstock` (confirm with DB module / app config) |
+| `BASTION_HOST` | Terraform output `bastion_public_ip` | `terraform output -raw bastion_public_ip` |
+| `BASTION_USER` | Terraform output `bastion_ssh_user` | `terraform output -raw bastion_ssh_user` |
+| `VM_HOST` | Terraform output `vm_private_ip` | `terraform output -raw vm_private_ip` |
+| `SSH_PRIVATE_KEY` | Key pair matching `admin_ssh_public_key` | Generated locally / in your secret store (not Terraform) |
+
+Related IAM outputs (for verification, not always stored as secrets):
+- `ci_principal_id`
+- `ci_acr_push_role_assignment_id`
+- `ci_rg_reader_role_assignment_id`
+- `vm_identity_principal_id` (VM managed identity used for `AcrPull`)
+- `acr_id`, `db_id`, `resource_group_name`
 
 Terraform workflow (local testing)
 
@@ -118,14 +167,5 @@ subscription_id = "<YOUR-SUBSCRIPTION-ID>"
 
 Ansible integration (high-level)
 - Keep Ansible playbooks in the repo's `ansible/` directory.
-- Use Terraform outputs to generate an inventory (public IP of bastion, private IP of VM, private key location).
-- The CD workflow should: build image -> push to ACR -> run Ansible against the private VM via the bastion (or use GitHub Actions self-hosted runner in same VNet) to pull the image and restart the service.
-
-Next steps I can help implement
-- Scaffold the `.tf` module files for `network`, `bastion`, `compute`, `db`, and `registry` (I will not write final production-grade configs without your confirmation).
-- Draft GitHub Actions `cd.yml` that authenticates to Azure, builds/pushes to ACR, and runs Ansible against the VM.
-
-Notes on academic integrity
-- You must author your Terraform and Ansible config files yourself per course rules; I'm providing a layout and guidance to help you implement them.
-
-If you want, I can now scaffold starter `.tf` files under `terraform/azure/modules/` to accelerate development — tell me to proceed with scaffolding.
+- Use Terraform outputs to generate an inventory (`bastion_public_ip`, `bastion_ssh_user`, `vm_private_ip`, and your SSH private key).
+- The CD workflow should: authenticate with `AZURE_CREDENTIALS` -> build image -> push to ACR (`AcrPush` via IAM) -> run Ansible against the private VM via the bastion (VM pulls with managed identity `AcrPull`).

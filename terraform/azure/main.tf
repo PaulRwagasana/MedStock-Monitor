@@ -57,3 +57,14 @@ module "compute" {
     environment = var.environment
   }
 }
+
+# IAM: CI/CD service principal role assignments only (no duplicate infra modules).
+module "iam" {
+  source = "./modules/iam"
+
+  resource_group_name = var.resource_group_name
+  acr_id              = module.registry.acr_id
+  ci_principal_id     = var.ci_principal_id
+  enable_acr_push     = var.enable_ci_acr_push
+  enable_rg_reader    = var.enable_ci_rg_reader
+}
