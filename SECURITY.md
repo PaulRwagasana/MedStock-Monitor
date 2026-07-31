@@ -2,199 +2,104 @@
 
 ## Overview
 
-MedStock Monitor integrates security scanning at every stage of the development
-workflow. Three automated scan types run on every pull request and push,
-ensuring vulnerabilities and misconfigurations are caught before code reaches
-the main branch. This document records all findings, actions taken, and the
-reasoning behind every accepted risk.
+MedStock Monitor integrates automated security scanning into every stage of the CI pipeline. Three scan types run on every pull request and push, ensuring vulnerabilities and misconfigurations are caught before code reaches the main branch. This document records all findings discovered during development, the actions taken, and the reasoning behind every accepted risk.
 
----
+## Scanning Tools and Coverage
 
-## Scanning Tools & Coverage
-
-| Tool | Scan Type | Trigger | CI Job | Blocks Merge |
-|---|---|---|---|---|
-| npm audit | Dependency vulnerabilities | Every PR and push | `security-scan` | Yes : HIGH/CRITICAL |
-| Trivy | Container image vulnerabilities | Every PR and push | `docker-build` | Yes : HIGH/CRITICAL |
-| Checkov | IaC misconfiguration (Terraform) | Every PR and push | `iac-scan` | Reports only (soft fail) |
-
----
+| Tool | Scan Type | CI Job | Blocks Merge on Finding |
+|---|---|---|---|
+| npm audit | Dependency vulnerabilities | `security-scan` | Yes — HIGH and CRITICAL |
+| Trivy | Container image vulnerabilities | `docker-build` | Yes — HIGH and CRITICAL |
+| Checkov | IaC misconfiguration | `iac-scan` | No — reports only (soft fail) |
 
 ## Severity Thresholds
 
 | Severity | npm audit | Trivy | Checkov |
 |---|---|---|---|
-| CRITICAL |  Fails pipeline |  Fails pipeline |  Reported in artifact |
-| HIGH |  Fails pipeline |  Fails pipeline |  Reported in artifact |
-| MEDIUM |  Reported only |  Reported only |  Reported in artifact |
-| LOW / INFO |  Ignored |  Ignored |  Reported in artifact |
+| CRITICAL | Fails pipeline | Fails pipeline | Reported in artifact |
+| HIGH | Fails pipeline | Fails pipeline | Reported in artifact |
+| MEDIUM | Reported only | Reported only | Reported in artifact |
+| LOW / INFO | Ignored | Ignored | Reported in artifact |
 
-**Why Checkov uses soft fail:** The Terraform configurations provision
-Azure networking infrastructure that requires an active Azure subscription to
-validate fully. Checkov runs in static analysis mode and it reads `.tf` files
-without cloud credentials. Blocking merges on every Checkov finding in a
-development environment would pause collaboration while the infrastructure is
-actively being built. All Checkov findings are documented here and addressed
-before any production deployment.
-
----
+Checkov uses soft fail because the Terraform configurations use the Docker provider (`kreuzwerker/docker ~> 3.0`) and are under active development. Checkov runs in static analysis mode without any runtime environment, so some findings require context that only exists at apply time. All findings are documented in this file. Hard fail will be enabled before the summative once configurations are stable.
 
 ## Scan 1: Dependency Vulnerabilities (npm audit)
 
-### Result:  PASSING
+**Result: PASSING**
 
-Our application dependencies : `express`, `pg`, `cors`, `dotenv` :returned
-zero HIGH or CRITICAL vulnerabilities. The `security-scan` job passes clean
-on every run.
+The audit runs against production dependencies only using `--omit=dev --audit-level=high`. DevDependencies  Jest, ESLint, Supertest  are excluded because they never run inside the production container and vulnerabilities in test tooling cannot be exploited through any production code path.
 
-| Package | Severity | CVE | Status |
+Our application dependencies (`express`, `pg`, `cors`, `dotenv`) returned zero HIGH or CRITICAL findings.
+
+| Package | Severity | Finding | Status |
 |---|---|---|---|
-| No findings | | All application dependencies are clean |  Passing |
-
-**Why this matters:** npm audit checks every package in `package-lock.json`
-against the Node.js Security Advisory database. A clean result here means our
-direct application dependencies carry no known exploitable vulnerabilities
-at the time of submission.
-
-**Scope:** Production dependencies only (`--omit=dev`). DevDependencies
-(Jest, ESLint, Supertest) are excluded from audit since they never run
-in the production container. A HIGH finding in `brace-expansion` was
-identified in Jest's internal `test-exclude` dependency this is
-documented as an accepted risk since it cannot be exploited through
-any production code path.
-
----
+| brace-expansion (Jest internal) | HIGH | GHSA-3jxr-9vmj-r5cp — DoS via exponential regex expansion | Accepted risk : devDependency only, excluded from production audit scope |
+| All production dependencies | — | No findings | Passing |
 
 ## Scan 2: Container Image Vulnerabilities (Trivy)
 
-### Result:  PASSING (after remediation)
+**Result: PASSING**
 
-Trivy scans the built Docker image for CVEs in OS packages and Node modules.
-Configured with `ignore-unfixed: true` so only vulnerabilities with available
-fixes are reported  keeping findings actionable.
+Trivy scans the built Docker image for CVEs in OS-level packages and Node modules. The scan is configured with `ignore-unfixed: true` so only vulnerabilities with an available fix are reported, keeping findings actionable rather than noisy.
 
-### OS-level findings  FIXED
+### OS-level findings : Fixed
 
-Six HIGH and CRITICAL CVEs were found in `libcap2` and `libgnutls30` packages
-inside the `node:20-slim` base image. All were resolved by adding
-`apt-get update && apt-get upgrade -y` to the Dockerfile production stage,
-which pulls the latest Debian security patches at build time.
+Six HIGH and CRITICAL CVEs were found in `libcap2` and `libgnutls30` inside the `node:20-slim` base image on first scan. All were resolved by adding `apt-get update && apt-get upgrade -y` to the Dockerfile production stage, pulling the latest Debian security patches at build time.
 
-| Package | CVE | Severity | Fixed Version | Action |
-|---|---|---|---|---|
-| libcap2 | CVE-2026-4878 | HIGH | 1:2.66-4+deb12u3 |  Fixed via apt-get upgrade |
-| libgnutls30 | CVE-2026-33845 | CRITICAL | 3.7.9-2+deb12u7 |  Fixed via apt-get upgrade |
-| libgnutls30 | CVE-2026-42010 | CRITICAL | 3.7.9-2+deb12u7 |  Fixed via apt-get upgrade |
-| libgnutls30 | CVE-2026-33846 | HIGH | 3.7.9-2+deb12u7 |  Fixed via apt-get upgrade |
-| libgnutls30 | CVE-2026-3833 | HIGH | 3.7.9-2+deb12u7 |  Fixed via apt-get upgrade |
-| libgnutls30 | CVE-2026-42009 | HIGH | 3.7.9-2+deb12u7 |  Fixed via apt-get upgrade |
+| Package | CVE | Severity | Action Taken |
+|---|---|---|---|
+| libcap2 | CVE-2026-4878 | HIGH | Fixed via apt-get upgrade |
+| libgnutls30 | CVE-2026-33845 | CRITICAL | Fixed via apt-get upgrade |
+| libgnutls30 | CVE-2026-42010 | CRITICAL | Fixed via apt-get upgrade |
+| libgnutls30 | CVE-2026-33846 | HIGH | Fixed via apt-get upgrade |
+| libgnutls30 | CVE-2026-3833 | HIGH | Fixed via apt-get upgrade |
+| libgnutls30 | CVE-2026-42009 | HIGH | Fixed via apt-get upgrade |
 
-### Node.js package findings ACCEPTED RISK (suppressed in .trivyignore)
+### npm-internal package findings — Eliminated
 
-Twelve HIGH CVEs were found at path `usr/local/lib/node_modules/npm/node_modules/`.
-These are **npm's own internal bundled dependencies** not our application
-packages. They appear at `/usr/local/lib/` not `/app/node_modules/`, confirming
-they belong to the npm tool itself rather than our codebase.
+On the first scan, Trivy found 12 HIGH CVEs in packages located at `usr/local/lib/node_modules/npm/node_modules/` npm's own internal bundled dependencies, not application code. These packages (`tar`, `minimatch`, `glob`, `cross-spawn`, `sigstore`) are never imported or called by the Express application at runtime, and no HTTP endpoint exposes them.
 
-**Original approach vs. final fix:** The initial 12 CVEs were suppressed
-via `.trivyignore` with documented reasoning (npm is never invoked at
-runtime, container runs as non-root, no endpoint exposes npm). When a
-routine Trivy DB refresh surfaced 3 *new* CVE IDs against the same
-underlying npm-bundled packages, it confirmed that suppressing by CVE ID
-was a moving target new disclosures against the same unused component
-would keep appearing indefinitely. We addressed the root cause instead:
+The initial response was to suppress them via `.trivyignore`. However, when a routine Trivy database refresh surfaced additional CVE IDs against the same underlying packages, it became clear that suppressing individual CVE IDs was a moving target  new disclosures would keep appearing against the same unused component indefinitely.
+
+The root cause was addressed instead by removing npm entirely from the production image:
 
 ```dockerfile
-# Remove bundled npm CLI which is unused at runtime to resolve tar/brace-expansion CVEs
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 ```
 
-added to the production stage of the Dockerfile, after `COPY . .` and before
-`USER node`. Since the container's only runtime command is `node server.js`,
-npm was never needed in the final image. Removing it eliminates the entire
-class of vulnerability rather than accepting ongoing risk from it.
+Since the container's only runtime command is `node server.js`, npm was never needed in the final image. Removing it eliminates the entire class of vulnerability. The `.trivyignore` file remains in the repository as an audit trail of what was previously found but is now redundant — the packages no longer exist in the scanned image.
 
-**Note on `.trivyignore`:** the original 12 CVE entries are now redundant
-(the packages they refer to no longer exist in the scanned image) and can
-be cleaned up in a future pass  left in place for now since they're
-harmless and preserve the audit trail of what was previously found.
-
-**Mitigations in place:**
-- npm CLI removed entirely from the production image nothing left to scan or exploit
-- Container runs as non-root user (`USER node`) limiting blast radius
-- Multi-stage build keeps build-time tooling out of the shipped image
-
----
-
-| Package | CVE | Severity | Location |
-|---|---|---|---|
-| cross-spawn 7.0.3 | CVE-2024-21538 | HIGH | npm internal |
-| glob 10.4.2 | CVE-2025-64756 | HIGH | npm internal |
-| minimatch 9.0.5 | CVE-2026-26996 | HIGH | npm internal |
-| minimatch 9.0.5 | CVE-2026-27903 | HIGH | npm internal |
-| minimatch 9.0.5 | CVE-2026-27904 | HIGH | npm internal |
-| sigstore 2.3.1 | CVE-2026-48815 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-23745 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-23950 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-24842 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-26960 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-29786 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-31802 | HIGH | npm internal |
-
-**Why these are suppressed:** These packages cannot be updated via
-`package.json` : they are internal to the npm binary that ships with
-`node:20-slim`. They are never imported or called by our running Express
-application. None of these packages are reachable through any HTTP endpoint
-our API exposes. They exist solely as tools npm uses during installation,
-which does not happen at container runtime. All 12 CVE IDs are listed in
-`.trivyignore` with this reasoning documented inline.
-
-**Mitigations in place:**
-- Container runs as non-root user (`USER node`) limiting blast radius
-- npm is not exposed externally no port or endpoint calls npm at runtime
-- Multi-stage build means npm itself could be removed from the final image
-  in a future hardening pass by copying only `node_modules` without npm
-
----
+The current scan returns zero HIGH or CRITICAL findings.
 
 ## Scan 3: IaC Misconfiguration (Checkov)
 
-### Result:  PASSING (with scoped configuration)
+**Result: PASSING (with scoped configuration)**
 
-Checkov scans the `terraform/` directory using the Docker Terraform provider
-(kreuzwerker/docker ~> 3.0). Azure-specific checks (CKV_AZURE_*) are skipped
-via `.checkov.yaml` since they target azurerm resources that don't exist in
-this configuration — running them would produce false positives against
-Docker provider resources.
+Checkov scans the `terraform/` directory which uses the Docker Terraform provider (`kreuzwerker/docker ~> 3.0`). Azure-specific checks (`CKV_AZURE_*`) are explicitly skipped via `.checkov.yaml` because they target `azurerm` resource types that do not exist in this configuration. Running them would produce false positives against Docker provider resources.
 
-All Docker provider checks pass. Full results are uploaded as
-`checkov-results` artifact on every CI run.
-
-**Why soft fail:** Checkov is still being calibrated as Terraform
-configurations evolve. Hard fail will be enabled before the summative.
+All checks applicable to the Docker provider pass. Full results are uploaded as the `checkov-results` artifact on every CI run for review.
 
 ## Remediation Summary
 
-| Action | Scan Type | Result |
+| Action | Tool | Outcome |
 |---|---|---|
-| `apt-get upgrade` added to Dockerfile | Trivy | Eliminated 6 OS-level CVEs |
-| `ignore-unfixed: true` in Trivy config | Trivy | Reports only actionable findings |
-| `.trivyignore` for npm-internal CVEs | Trivy | 12 unfixable CVEs suppressed with documentation |
-| `npm audit --audit-level=high` threshold | npm audit | Only blocks on genuinely dangerous findings |
-| `soft_fail: true` for Checkov | Checkov | Findings documented without blocking dev workflow |
-| Multi-stage Dockerfile | Trivy | Build tools absent from production image |
-| Non-root user (`USER node`) | All | Limits container exploit blast radius |
-| `packages: write` scoped to one job | Pipeline | Principle of least privilege on GHCR |
-| `.env` gitignored, `.env.example` committed | All | No secrets in version control |
-
----
+| `apt-get upgrade` added to Dockerfile production stage | Trivy | Eliminated 6 OS-level CVEs in libcap2 and libgnutls30 |
+| npm CLI removed from production image | Trivy | Eliminated entire class of npm-internal CVE findings |
+| `ignore-unfixed: true` in Trivy configuration | Trivy | Limits reports to actionable findings with available fixes |
+| `--omit=dev` flag on npm audit | npm audit | Scopes audit to production dependencies only |
+| Azure checks skipped in `.checkov.yaml` | Checkov | Prevents false positives from checks targeting azurerm resources |
+| Multi-stage Dockerfile | Trivy | Build tools absent from production image, reducing attack surface |
+| Non-root user (`USER node`) in Dockerfile | All | Limits blast radius if a container vulnerability is exploited |
+| `packages: write` permission scoped to docker-build job only | Pipeline | Principle of least privilege on GHCR  other jobs cannot write packages |
+| `.env` gitignored, `.env.example` committed | All | No secrets committed to version control |
 
 ## Accepted Risks Register
 
 | Risk | Severity | Reason Accepted | Mitigation |
 |---|---|---|---|
-| 12 npm-internal CVEs (tar, minimatch, glob, cross-spawn, sigstore) | HIGH | Not reachable at runtime; cannot be fixed via package.json; internal to npm binary | Non-root user; npm not exposed externally; documented in .trivyignore |
-| SSH open to 0.0.0.0/0 in Terraform default | HIGH | Development environment only; variable is configurable for production | Variable override required before any production deployment |
-| Checkov soft fail | Varies | Infrastructure actively under development; hard fail would block the team | All findings documented here; hard fail to be enabled before summative |
+| brace-expansion HIGH CVE in Jest devDependency | HIGH | Jest is a test-only tool  never runs in production, never ships inside the Docker image, cannot be exploited through any production code path | Excluded from audit scope via `--omit=dev` |
+| Checkov soft fail on Docker Terraform configurations | Varies | Configurations are under active development and Checkov's Docker provider rule set is smaller than AWS or Azure — some findings require runtime context not available in static analysis | All findings reviewed manually; hard fail enabled before summative |
 
----
+## Reporting a Vulnerability
+
+If you discover a security vulnerability in MedStock Monitor, do not open a public GitHub issue. Use GitHub's private vulnerability reporting feature on the Security tab of the repository, or contact the repository owner directly.
