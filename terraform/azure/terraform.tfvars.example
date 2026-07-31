@@ -1,0 +1,27 @@
+# Copy to terraform.tfvars (gitignored) and fill in real values.
+#   cp terraform.tfvars.example terraform.tfvars
+
+resource_group_name = "rg-medstock-dev"
+location            = "eastus"
+environment         = "dev"
+name_prefix         = "medstock"
+
+admin_ssh_public_key = "ssh-rsa AAAA... your-public-key"
+
+# Restrict in real deployments
+allowed_ssh_cidrs = ["0.0.0.0/0"]
+
+db_administrator_password = "ChangeMe-Str0ng-P@ssw0rd"
+acr_admin_enabled         = false
+
+# Optional: Terraform provider auth via service principal (leave empty to use az login)
+# client_id       = ""
+# client_secret   = ""
+# tenant_id       = ""
+# subscription_id = ""
+
+# IAM — object ID of the CI/CD service principal (from az ad sp show / create-for-rbac)
+# Leave empty to skip role assignments during local planning.
+ci_principal_id      = ""
+enable_ci_acr_push   = true
+enable_ci_rg_reader  = true
