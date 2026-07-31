@@ -248,6 +248,17 @@ terraform init
 terraform plan -out=plan.out
 ```
 
+### Authentication Options
+- Azure CLI auth: run `az login` before Terraform and do not set SP values.
+- Service principal auth: set the following values in `terraform.tfvars` or pass via `-var`:
+
+```hcl
+client_id       = "<YOUR-SP-CLIENT-ID>"
+client_secret   = "<YOUR-SP-CLIENT-SECRET>"
+tenant_id       = "<YOUR-TENANT-ID>"
+subscription_id = "<YOUR-SUBSCRIPTION-ID>"
+```
+
 ### Notes
 
 - Root module files are in `terraform/azure/main.tf`, `providers.tf`, `variables.tf`, and `outputs.tf`.

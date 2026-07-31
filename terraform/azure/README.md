@@ -104,6 +104,18 @@ terraform plan -var-file=terraform.tfvars
 terraform apply -var-file=terraform.tfvars
 ```
 
+Authentication note
+- This repo supports both Azure CLI auth and explicit service principal auth.
+- For Azure CLI auth, run `az login` before Terraform and leave the SP vars unset.
+- For explicit service principal auth, set these values in `terraform.tfvars` or pass them as `-var`:
+
+```hcl
+client_id       = "<YOUR-SP-CLIENT-ID>"
+client_secret   = "<YOUR-SP-CLIENT-SECRET>"
+tenant_id       = "<YOUR-TENANT-ID>"
+subscription_id = "<YOUR-SUBSCRIPTION-ID>"
+```
+
 Ansible integration (high-level)
 - Keep Ansible playbooks in the repo's `ansible/` directory.
 - Use Terraform outputs to generate an inventory (public IP of bastion, private IP of VM, private key location).
