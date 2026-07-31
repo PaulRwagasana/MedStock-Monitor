@@ -12,6 +12,14 @@ variable "ci_principal_id" {
   description = "Object ID of the CI/CD service principal that should receive IAM role assignments. Leave empty to skip assignments."
   type        = string
   default     = ""
+
+  validation {
+    condition = (
+      var.ci_principal_id == "" ||
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.ci_principal_id))
+    )
+    error_message = "ci_principal_id must be empty or a valid Azure AD object ID (UUID), e.g. xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx. Do not use the application (client) ID."
+  }
 }
 
 variable "enable_acr_push" {
