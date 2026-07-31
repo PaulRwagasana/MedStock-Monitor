@@ -10,7 +10,7 @@ MedStock Monitor integrates automated security scanning into every stage of the 
 |---|---|---|---|
 | npm audit | Dependency vulnerabilities | `security-scan` | Yes — HIGH and CRITICAL |
 | Trivy | Container image vulnerabilities | `docker-build` | Yes — HIGH and CRITICAL |
-| Checkov | IaC misconfiguration | `iac-scan` | Yes — hard fail (soft fail removed for summative) |
+| Checkov | IaC misconfiguration | `iac-scan` | Yes  hard fail  |
 
 ## Severity Thresholds
 
@@ -31,7 +31,7 @@ Our application dependencies (`express`, `pg`, `cors`, `dotenv`) returned zero H
 
 | Package | Severity | Finding | Status |
 |---|---|---|---|
-| brace-expansion (Jest internal) | HIGH | GHSA-3jxr-9vmj-r5cp — DoS via exponential regex expansion | Accepted risk — devDependency only, excluded from audit scope via --omit=dev |
+| brace-expansion (Jest internal) | HIGH | GHSA-3jxr-9vmj-r5cp — DoS via exponential regex expansion | Accepted risk  devDependency only, excluded from audit scope via --omit=dev |
 | All production dependencies | — | No findings | Passing |
 
 ## Scan 2: Container Image Vulnerabilities (Trivy)
@@ -53,7 +53,7 @@ Six HIGH and CRITICAL CVEs were found in `libcap2` and `libgnutls30` inside the 
 | libgnutls30 | CVE-2026-3833 | HIGH | Fixed via apt-get upgrade |
 | libgnutls30 | CVE-2026-42009 | HIGH | Fixed via apt-get upgrade |
 
-### npm-internal package findings — Eliminated
+### npm-internal package findings  Eliminated
 
 Twelve HIGH CVEs were found in npm's own internal bundled dependencies (`tar`, `minimatch`, `glob`, `cross-spawn`, `sigstore`). These were never reachable through the application. The root cause was addressed by removing npm entirely from the production image:
 
@@ -61,19 +61,19 @@ Twelve HIGH CVEs were found in npm's own internal bundled dependencies (`tar`, `
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 ```
 
-### brace-expansion CVE — Accepted Risk
+### brace-expansion CVE Accepted Risk
 
 | Package | CVE | Severity | Location | Status |
 |---|---|---|---|---|
 | brace-expansion 1.1.16, 2.1.2, 5.0.7 | CVE-2026-14257 | HIGH | app/node_modules (Jest/test-exclude internals) | Accepted risk |
 
-**Why accepted:** `brace-expansion` appears at three nested paths inside Jest's own dependency tree (`test-exclude`, `glob`, root). The fixed version is 5.0.8 but these are Jest's internal transitive dependencies — updating them independently would require Jest itself to release a patch. This package is only invoked by Jest at test time. No HTTP endpoint in the running application calls any function from brace-expansion. The container runs as non-root and has no test runner executing at runtime. Listed in `.trivyignore` with this reasoning.
+**Why accepted:** `brace-expansion` appears at three nested paths inside Jest's own dependency tree (`test-exclude`, `glob`, root). The fixed version is 5.0.8 but these are Jest's internal transitive dependencies , updating them independently would require Jest itself to release a patch. This package is only invoked by Jest at test time. No HTTP endpoint in the running application calls any function from brace-expansion. The container runs as non-root and has no test runner executing at runtime. Listed in `.trivyignore` with this reasoning.
 
 ## Scan 3: IaC Misconfiguration (Checkov)
 
 **Result: PASSING (with documented skip list)**
 
-Checkov scans the `terraform/azure/` directory against Azure provider rules. The scan is configured with `soft_fail: false` — it will fail the pipeline on any check not explicitly skipped. All skipped checks are documented below with specific reasoning. Full scan results are uploaded as `checkov-results` artifact on every CI run.
+Checkov scans the `terraform/azure/` directory against Azure provider rules. The scan is configured with `soft_fail: false`  it will fail the pipeline on any check not explicitly skipped. All skipped checks are documented below with specific reasoning. Full scan results are uploaded as `checkov-results` artifact on every CI run.
 
 ### Checks passing (25 total)
 
@@ -95,13 +95,13 @@ Key security checks that pass confirm the infrastructure is correctly secured:
 | CKV_AZURE_77 | UDP services restricted from internet | Passing |
 | CKV_AZURE_182 | VNet has at least 2 DNS endpoints | Passing |
 
-### Checks skipped — with justification
+### Checks skipped  with justification
 
 **Category 1: Architectural requirements (cannot be changed without breaking the system)**
 
 | Check | Finding | Why skipped |
 |---|---|---|
-| CKV_AZURE_119 | Bastion NIC has a public IP | The Bastion host is the jump server that GitHub Actions SSHs into to reach the private application VM. Removing its public IP would make the entire CD deployment pipeline unreachable. This is correct architecture — the Bastion's purpose is to be the single public entry point. |
+| CKV_AZURE_119 | Bastion NIC has a public IP | The Bastion host is the jump server that GitHub Actions SSHs into to reach the private application VM. Removing its public IP would make the entire CD deployment pipeline unreachable. This is correct architecture : the Bastion's purpose is to be the single public entry point. |
 | CKV_AZURE_160 | HTTP port 80 open from internet on public NSG | The application must be accessible to users on port 80. Restricting port 80 from the internet defeats the purpose of a web application. Traffic is controlled through the public/private subnet separation. |
 | CKV_AZURE_139 | ACR public networking not disabled | GitHub Actions runners are GitHub-hosted and do not have fixed IPs. The CD pipeline must push images to ACR from the internet. Disabling public networking would require VNet-integrated self-hosted runners which is beyond student project scope. Mitigated by ACR admin being disabled (CKV_AZURE_137 passes) and anonymous pulls disabled (CKV_AZURE_138 passes). |
 
@@ -121,7 +121,7 @@ Key security checks that pass confirm the infrastructure is correctly secured:
 | CKV_AZURE_237 | ACR dedicated data endpoints | Requires Premium ACR | Standard endpoints are sufficient. |
 | CKV_AZURE_164 | ACR content trust (signed images) | Requires Premium ACR + key infrastructure | Image integrity is enforced by Trivy scanning before push instead. |
 | CKV_AZURE_166 | ACR image quarantine policy | Requires Microsoft Defender for Containers | Equivalent protection provided by Trivy scanning in CI. |
-| CKV_AZURE_167 | ACR retention policy for untagged manifests | Requires Premium ACR | Images are tagged with commit SHA — untagged manifests are not expected. |
+| CKV_AZURE_167 | ACR retention policy for untagged manifests | Requires Premium ACR | Images are tagged with commit SHA : untagged manifests are not expected. |
 
 ## Remediation Summary
 
@@ -145,7 +145,7 @@ Key security checks that pass confirm the infrastructure is correctly secured:
 
 | Risk | Severity | Reason Accepted | Mitigation |
 |---|---|---|---|
-| brace-expansion CVE-2026-14257 in Jest devDependency | HIGH | Jest internal dependency — not reachable at runtime | Not executed in production container; container runs as non-root |
+| brace-expansion CVE-2026-14257 in Jest devDependency | HIGH | Jest internal dependency : not reachable at runtime | Not executed in production container; container runs as non-root |
 | Bastion host has public IP (CKV_AZURE_119) | Design trade-off | Required for CD pipeline SSH access | Bastion is only VM with public IP; app VM has no public IP; SSH key authentication only |
 | HTTP port 80 open from internet (CKV_AZURE_160) | Design trade-off | Web application must be accessible to users | Traffic restricted to ports 80/443 only; database in private subnet |
 | ACR public networking enabled (CKV_AZURE_139) | Design trade-off | GitHub Actions runners need internet access to push | Admin account disabled; anonymous pull disabled; images scanned before push |
