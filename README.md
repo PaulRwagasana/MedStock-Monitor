@@ -222,6 +222,40 @@ Copy `.env.example` to `.env` and fill in your values:
 
 ---
 
+## Terraform Usage
+
+The Azure Terraform configuration is stored under `terraform/azure` and uses modular code to provision:
+
+- a virtual network with public and private subnets
+- a bastion host in the public subnet
+- a private compute VM in the private subnet
+- Azure Database for PostgreSQL Flexible Server
+- Azure Container Registry (ACR)
+
+### Prerequisites
+
+- Azure CLI logged in: `az login`
+- Terraform installed locally (or use Azure Cloud Shell)
+- Access to the target Azure subscription
+
+### Init and Plan
+
+Run these commands from the `terraform/azure` directory:
+
+```bash
+cd terraform/azure
+terraform init
+terraform plan -out=plan.out
+```
+
+### Notes
+
+- Root module files are in `terraform/azure/main.tf`, `providers.tf`, `variables.tf`, and `outputs.tf`.
+- Submodules are in `terraform/azure/modules/{network,bastion,compute,db,registry}`.
+- Sensitive values such as `db_administrator_password` should be provided via `terraform.tfvars` or environment variables.
+
+---
+
 ## Future Microservices Architecture
 
 | Service | Responsibility |
