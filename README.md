@@ -250,6 +250,8 @@ Copy `.env.example` to `.env` and fill in your values:
 | Mika Rurangwa | Backend Developer — Express API, data storage, endpoints |
 | Monica Akoi Dau Ahol | Frontend & Documentation — UI, README, sample data |
 | Cletus Ayeebo Abugre | Frontend Styling — UI design, CSS, visual presentation |
+| Munezero Hubert | Backend Developer — Terraform , Networking security rules |
+
 
 ---
 

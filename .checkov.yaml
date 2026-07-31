@@ -1,0 +1,16 @@
+skip-check:
+  # Azure-specific checks not applicable since this project
+  # uses the Docker Terraform provider (kreuzwerker/docker ~> 3.0),
+  # not the Azure provider. Skipping prevents false positives from
+  # checks designed for azurerm resources.
+  - CKV_AZURE_9
+  - CKV_AZURE_10
+  - CKV_AZURE_1
+  - CKV_AZURE_2
+  - CKV_AZURE_3
+  - CKV_AZURE_4
+  - CKV_AZURE_5
+
+# Only evaluates checks relevant to Docker and general Terraform best practices
+framework:
+  - terraform
