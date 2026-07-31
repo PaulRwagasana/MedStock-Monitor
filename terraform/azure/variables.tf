@@ -43,3 +43,28 @@ variable "acr_admin_enabled" {
   type        = bool
   default     = false
 }
+
+variable "client_id" {
+  description = "Azure service principal client ID for explicit provider authentication"
+  type        = string
+  default     = ""
+}
+
+variable "client_secret" {
+  description = "Azure service principal client secret for explicit provider authentication"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "tenant_id" {
+  description = "Azure tenant ID for explicit provider authentication"
+  type        = string
+  default     = ""
+}
+
+variable "subscription_id" {
+  description = "Azure subscription ID for explicit provider authentication"
+  type        = string
+  default     = ""
+}

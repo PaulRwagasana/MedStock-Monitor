@@ -9,9 +9,13 @@ resource "azurerm_network_interface" "compute_nic" {
     private_ip_address_allocation = "Dynamic"
   }
 
-  network_security_group_id = var.nsg_id != "" ? var.nsg_id : null
-
   tags = var.tags
+}
+
+resource "azurerm_network_interface_security_group_association" "compute_nsg_assoc" {
+  count                     = var.nsg_id == "" ? 0 : 1
+  network_interface_id      = azurerm_network_interface.compute_nic.id
+  network_security_group_id = var.nsg_id
 }
 
 resource "azurerm_linux_virtual_machine" "compute_vm" {

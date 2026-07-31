@@ -26,7 +26,7 @@ variable "tier" {
   default     = "Burstable"
 }
 
-variable "version" {
+variable "postgres_version" {
   description = "PostgreSQL major version"
   type        = string
   default     = "14"

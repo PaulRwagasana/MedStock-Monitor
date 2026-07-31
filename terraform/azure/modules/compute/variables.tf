@@ -51,7 +51,7 @@ package_update: true
 packages:
   - docker.io
 runcmd:
-  - [ sh, -c, 'usermod -aG docker ${ADMIN_USER:-azureuser}' ]
+  - [ sh, -c, 'usermod -aG docker azureuser' ]
   - [ sh, -c, 'systemctl enable --now docker' ]
 EOT
 }
