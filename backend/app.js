@@ -3,6 +3,7 @@ const cors = require("cors");
 
 const medicineRoutes = require("./src/routes/medicineRoutes");
 const errorHandler = require("./src/middlewares/errorHandler");
+const pool = require("./src/config/db");
 
 const app = express();
 
@@ -16,6 +17,16 @@ app.get("/", (req, res) => {
     success: true,
     message: "Welcome to MedStock Monitor API",
   });
+});
+
+// Health Check
+app.get("/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok", db: "connected" });
+  } catch {
+    res.status(503).json({ status: "error", db: "unreachable" });
+  }
 });
 
 // API Routes

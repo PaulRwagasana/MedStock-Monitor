@@ -66,3 +66,21 @@ describe("GET /api/medicines/alerts/low-stock", () => {
     expect(res.statusCode).toBe(200);
   });
 });
+
+describe("GET /health", () => {
+  it("returns ok when db is reachable", async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app).get("/health");
+    expect(res.statusCode).toBe(200);
+    expect(res.body.status).toBe("ok");
+    expect(res.body.db).toBe("connected");
+  });
+
+  it("returns 503 when db is unreachable", async () => {
+    db.query.mockRejectedValueOnce(new Error("connection refused"));
+    const res = await request(app).get("/health");
+    expect(res.statusCode).toBe(503);
+    expect(res.body.status).toBe("error");
+    expect(res.body.db).toBe("unreachable");
+  });
+});
