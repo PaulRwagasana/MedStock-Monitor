@@ -72,17 +72,34 @@ jobs:
         working-directory: backend
 
   iac-scan:
-    name: IaC Security Scan (Checkov)
+    name: IaC Validate & Security Scan (Checkov)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.5"
+
+      - name: Terraform fmt check
+        run: terraform fmt -check -recursive
+        working-directory: terraform/azure
+
+      - name: Terraform init 
+        run: terraform init -backend=false
+        working-directory: terraform/azure
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: terraform/azure
+
       - name: Run Checkov IaC scan
         uses: bridgecrewio/checkov-action@master
         with:
-          directory: terraform/
+          directory: terraform/azure
           framework: terraform
           output_format: cli
           output_file_path: checkov-results.txt

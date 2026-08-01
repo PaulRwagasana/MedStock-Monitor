@@ -71,7 +71,7 @@ jobs:
       - name: Run Checkov IaC scan
         uses: bridgecrewio/checkov-action@master
         with:
-          directory: terraform/
+          directory: terraform/azure
           framework: terraform
           output_format: cli
           output_file_path: checkov-results.txt
