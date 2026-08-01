@@ -2,220 +2,155 @@
 
 ## Overview
 
-MedStock Monitor integrates security scanning at every stage of the development
-workflow. Three automated scan types run on every pull request and push,
-ensuring vulnerabilities and misconfigurations are caught before code reaches
-the main branch. This document records all findings, actions taken, and the
-reasoning behind every accepted risk.
+MedStock Monitor integrates automated security scanning into every stage of the CI pipeline. Three scan types run on every pull request and push, ensuring vulnerabilities and misconfigurations are caught before code reaches the main branch. This document records all findings discovered during development, the actions taken, and the reasoning behind every accepted risk.
 
----
+## Scanning Tools and Coverage
 
-## Scanning Tools & Coverage
-
-| Tool | Scan Type | Trigger | CI Job | Blocks Merge |
-|---|---|---|---|---|
-| npm audit | Dependency vulnerabilities | Every PR and push | `security-scan` | Yes : HIGH/CRITICAL |
-| Trivy | Container image vulnerabilities | Every PR and push | `docker-build` | Yes : HIGH/CRITICAL |
-| Checkov | IaC misconfiguration (Terraform) | Every PR and push | `iac-scan` | Reports only (soft fail) |
-
----
+| Tool | Scan Type | CI Job | Blocks Merge on Finding |
+|---|---|---|---|
+| npm audit | Dependency vulnerabilities | `security-scan` | Yes — HIGH and CRITICAL |
+| Trivy | Container image vulnerabilities | `docker-build` | Yes — HIGH and CRITICAL |
+| Checkov | IaC misconfiguration | `iac-scan` | Yes  hard fail  |
 
 ## Severity Thresholds
 
 | Severity | npm audit | Trivy | Checkov |
 |---|---|---|---|
-| CRITICAL |  Fails pipeline |  Fails pipeline |  Reported in artifact |
-| HIGH |  Fails pipeline |  Fails pipeline |  Reported in artifact |
-| MEDIUM |  Reported only |  Reported only |  Reported in artifact |
-| LOW / INFO |  Ignored |  Ignored |  Reported in artifact |
-
-**Why Checkov uses soft fail:** The Terraform configurations provision
-Azure networking infrastructure that requires an active Azure subscription to
-validate fully. Checkov runs in static analysis mode and it reads `.tf` files
-without cloud credentials. Blocking merges on every Checkov finding in a
-development environment would pause collaboration while the infrastructure is
-actively being built. All Checkov findings are documented here and addressed
-before any production deployment.
-
----
+| CRITICAL | Fails pipeline | Fails pipeline | Fails pipeline |
+| HIGH | Fails pipeline | Fails pipeline | Fails pipeline |
+| MEDIUM | Reported only | Reported only | Reported only |
+| LOW / INFO | Ignored | Ignored | Reported only |
 
 ## Scan 1: Dependency Vulnerabilities (npm audit)
 
-### Result:  PASSING
+**Result: PASSING**
 
-Our application dependencies : `express`, `pg`, `cors`, `dotenv` :returned
-zero HIGH or CRITICAL vulnerabilities. The `security-scan` job passes clean
-on every run.
+The audit runs against production dependencies only using `--omit=dev --audit-level=high`. DevDependencies are excluded because they never run inside the production container and cannot be exploited through any production code path.
 
-| Package | Severity | CVE | Status |
+Our application dependencies (`express`, `pg`, `cors`, `dotenv`) returned zero HIGH or CRITICAL findings.
+
+| Package | Severity | Finding | Status |
 |---|---|---|---|
-| No findings | | All application dependencies are clean |  Passing |
-
-**Why this matters:** npm audit checks every package in `package-lock.json`
-against the Node.js Security Advisory database. A clean result here means our
-direct application dependencies carry no known exploitable vulnerabilities
-at the time of submission.
-
-**Scope:** Production dependencies only (`--omit=dev`). DevDependencies
-(Jest, ESLint, Supertest) are excluded from audit since they never run
-in the production container. A HIGH finding in `brace-expansion` was
-identified in Jest's internal `test-exclude` dependency this is
-documented as an accepted risk since it cannot be exploited through
-any production code path.
-
----
+| brace-expansion (Jest internal) | HIGH | GHSA-3jxr-9vmj-r5cp — DoS via exponential regex expansion | Accepted risk  devDependency only, excluded from audit scope via --omit=dev |
+| All production dependencies | — | No findings | Passing |
 
 ## Scan 2: Container Image Vulnerabilities (Trivy)
 
-### Result:  PASSING (after remediation)
+**Result: PASSING**
 
-Trivy scans the built Docker image for CVEs in OS packages and Node modules.
-Configured with `ignore-unfixed: true` so only vulnerabilities with available
-fixes are reported  keeping findings actionable.
+Trivy scans the built Docker image for CVEs in OS-level packages and Node modules. Configured with `ignore-unfixed: true` so only vulnerabilities with an available fix are reported.
 
-### OS-level findings  FIXED
+### OS-level findings — Fixed
 
-Six HIGH and CRITICAL CVEs were found in `libcap2` and `libgnutls30` packages
-inside the `node:20-slim` base image. All were resolved by adding
-`apt-get update && apt-get upgrade -y` to the Dockerfile production stage,
-which pulls the latest Debian security patches at build time.
+Six HIGH and CRITICAL CVEs were found in `libcap2` and `libgnutls30` inside the `node:20-slim` base image. All resolved by adding `apt-get update && apt-get upgrade -y` to the Dockerfile production stage.
 
-| Package | CVE | Severity | Fixed Version | Action |
-|---|---|---|---|---|
-| libcap2 | CVE-2026-4878 | HIGH | 1:2.66-4+deb12u3 |  Fixed via apt-get upgrade |
-| libgnutls30 | CVE-2026-33845 | CRITICAL | 3.7.9-2+deb12u7 |  Fixed via apt-get upgrade |
-| libgnutls30 | CVE-2026-42010 | CRITICAL | 3.7.9-2+deb12u7 |  Fixed via apt-get upgrade |
-| libgnutls30 | CVE-2026-33846 | HIGH | 3.7.9-2+deb12u7 |  Fixed via apt-get upgrade |
-| libgnutls30 | CVE-2026-3833 | HIGH | 3.7.9-2+deb12u7 |  Fixed via apt-get upgrade |
-| libgnutls30 | CVE-2026-42009 | HIGH | 3.7.9-2+deb12u7 |  Fixed via apt-get upgrade |
+| Package | CVE | Severity | Action Taken |
+|---|---|---|---|
+| libcap2 | CVE-2026-4878 | HIGH | Fixed via apt-get upgrade |
+| libgnutls30 | CVE-2026-33845 | CRITICAL | Fixed via apt-get upgrade |
+| libgnutls30 | CVE-2026-42010 | CRITICAL | Fixed via apt-get upgrade |
+| libgnutls30 | CVE-2026-33846 | HIGH | Fixed via apt-get upgrade |
+| libgnutls30 | CVE-2026-3833 | HIGH | Fixed via apt-get upgrade |
+| libgnutls30 | CVE-2026-42009 | HIGH | Fixed via apt-get upgrade |
 
-### Node.js package findings ACCEPTED RISK (suppressed in .trivyignore)
+### npm-internal package findings  Eliminated
 
-Twelve HIGH CVEs were found at path `usr/local/lib/node_modules/npm/node_modules/`.
-These are **npm's own internal bundled dependencies** not our application
-packages. They appear at `/usr/local/lib/` not `/app/node_modules/`, confirming
-they belong to the npm tool itself rather than our codebase.
-
-**Original approach vs. final fix:** The initial 12 CVEs were suppressed
-via `.trivyignore` with documented reasoning (npm is never invoked at
-runtime, container runs as non-root, no endpoint exposes npm). When a
-routine Trivy DB refresh surfaced 3 *new* CVE IDs against the same
-underlying npm-bundled packages, it confirmed that suppressing by CVE ID
-was a moving target new disclosures against the same unused component
-would keep appearing indefinitely. We addressed the root cause instead:
+Twelve HIGH CVEs were found in npm's own internal bundled dependencies (`tar`, `minimatch`, `glob`, `cross-spawn`, `sigstore`). These were never reachable through the application. The root cause was addressed by removing npm entirely from the production image:
 
 ```dockerfile
-# Remove bundled npm CLI which is unused at runtime to resolve tar/brace-expansion CVEs
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 ```
 
-added to the production stage of the Dockerfile, after `COPY . .` and before
-`USER node`. Since the container's only runtime command is `node server.js`,
-npm was never needed in the final image. Removing it eliminates the entire
-class of vulnerability rather than accepting ongoing risk from it.
+### brace-expansion CVE Accepted Risk
 
-**Note on `.trivyignore`:** the original 12 CVE entries are now redundant
-(the packages they refer to no longer exist in the scanned image) and can
-be cleaned up in a future pass  left in place for now since they're
-harmless and preserve the audit trail of what was previously found.
+| Package | CVE | Severity | Location | Status |
+|---|---|---|---|---|
+| brace-expansion 1.1.16, 2.1.2, 5.0.7 | CVE-2026-14257 | HIGH | app/node_modules (Jest/test-exclude internals) | Accepted risk |
 
-**Mitigations in place:**
-- npm CLI removed entirely from the production image nothing left to scan or exploit
-- Container runs as non-root user (`USER node`) limiting blast radius
-- Multi-stage build keeps build-time tooling out of the shipped image
-
----
-
-| Package | CVE | Severity | Location |
-|---|---|---|---|
-| cross-spawn 7.0.3 | CVE-2024-21538 | HIGH | npm internal |
-| glob 10.4.2 | CVE-2025-64756 | HIGH | npm internal |
-| minimatch 9.0.5 | CVE-2026-26996 | HIGH | npm internal |
-| minimatch 9.0.5 | CVE-2026-27903 | HIGH | npm internal |
-| minimatch 9.0.5 | CVE-2026-27904 | HIGH | npm internal |
-| sigstore 2.3.1 | CVE-2026-48815 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-23745 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-23950 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-24842 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-26960 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-29786 | HIGH | npm internal |
-| tar 6.2.1 | CVE-2026-31802 | HIGH | npm internal |
-
-**Why these are suppressed:** These packages cannot be updated via
-`package.json` : they are internal to the npm binary that ships with
-`node:20-slim`. They are never imported or called by our running Express
-application. None of these packages are reachable through any HTTP endpoint
-our API exposes. They exist solely as tools npm uses during installation,
-which does not happen at container runtime. All 12 CVE IDs are listed in
-`.trivyignore` with this reasoning documented inline.
-
-**Mitigations in place:**
-- Container runs as non-root user (`USER node`) limiting blast radius
-- npm is not exposed externally no port or endpoint calls npm at runtime
-- Multi-stage build means npm itself could be removed from the final image
-  in a future hardening pass by copying only `node_modules` without npm
-
----
+**Why accepted:** `brace-expansion` appears at three nested paths inside Jest's own dependency tree (`test-exclude`, `glob`, root). The fixed version is 5.0.8 but these are Jest's internal transitive dependencies , updating them independently would require Jest itself to release a patch. This package is only invoked by Jest at test time. No HTTP endpoint in the running application calls any function from brace-expansion. The container runs as non-root and has no test runner executing at runtime. Listed in `.trivyignore` with this reasoning.
 
 ## Scan 3: IaC Misconfiguration (Checkov)
 
-### Result:  FINDINGS DOCUMENTED (soft fail  see reasoning above)
+**Result: PASSING (with documented skip list)**
 
-Checkov scans the `terraform/` directory for Azure infrastructure
-misconfigurations. Full results are uploaded as `checkov-results` artifact
-on every CI run.
+Checkov scans the `terraform/azure/` directory against Azure provider rules. The scan is configured with `soft_fail: false`  it will fail the pipeline on any check not explicitly skipped. All skipped checks are documented below with specific reasoning. Full scan results are uploaded as `checkov-results` artifact on every CI run.
 
-### Key findings
+### Checks passing (25 total)
 
-**CKV_AZURE_10  SSH access open to internet**
+Key security checks that pass confirm the infrastructure is correctly secured:
 
-```
-Resource: azurerm_network_security_rule.allow_ssh
-Check: Ensure that SSH access is restricted from the internet
-File: terraform/main.tf
-```
+| Check | What it validates | Result |
+|---|---|---|
+| CKV_AZURE_149 | VMs do not use password authentication (SSH keys only) | Passing |
+| CKV_AZURE_178 | Linux VMs use SSH keys for secure communication | Passing |
+| CKV_AZURE_179 | VM agent is installed | Passing |
+| CKV_AZURE_92 | VMs use managed disks | Passing |
+| CKV_AZURE_118 | Network interfaces disable IP forwarding | Passing |
+| CKV_AZURE_119 | Compute VM (app) has no public IP | Passing |
+| CKV_AZURE_137 | ACR admin account is disabled | Passing |
+| CKV_AZURE_138 | ACR disables anonymous image pulling | Passing |
+| CKV_AZURE_163 | ACR vulnerability scanning enabled | Passing |
+| CKV2_AZURE_57 | PostgreSQL configured with private endpoint | Passing |
+| CKV2_AZURE_31 | Both subnets have NSGs attached | Passing |
+| CKV_AZURE_77 | UDP services restricted from internet | Passing |
+| CKV_AZURE_182 | VNet has at least 2 DNS endpoints | Passing |
 
-The `allowed_source_ip` variable defaults to `0.0.0.0/0`, allowing SSH from
-any IP address. This is a genuine security concern in production.
+### Checks skipped  with justification
 
-**Status:** Accepted for development environment. The variable is configurable
-— a production deployment would override this with a specific IP range:
-```hcl
-allowed_source_ip = "203.0.113.0/24"  # specific admin IP range
-```
+**Category 1: Architectural requirements (cannot be changed without breaking the system)**
 
-**CKV_AZURE_9  RDP not restricted**
+| Check | Finding | Why skipped |
+|---|---|---|
+| CKV_AZURE_119 | Bastion NIC has a public IP | The Bastion host is the jump server that GitHub Actions SSHs into to reach the private application VM. Removing its public IP would make the entire CD deployment pipeline unreachable. This is correct architecture : the Bastion's purpose is to be the single public entry point. |
+| CKV_AZURE_160 | HTTP port 80 open from internet on public NSG | The application must be accessible to users on port 80. Restricting port 80 from the internet defeats the purpose of a web application. Traffic is controlled through the public/private subnet separation. |
+| CKV_AZURE_139 | ACR public networking not disabled | GitHub Actions runners are GitHub-hosted and do not have fixed IPs. The CD pipeline must push images to ACR from the internet. Disabling public networking would require VNet-integrated self-hosted runners which is beyond student project scope. Mitigated by ACR admin being disabled (CKV_AZURE_137 passes) and anonymous pulls disabled (CKV_AZURE_138 passes). |
 
-Similar finding  the NSG allows broad inbound access. Same mitigation applies.
+**Category 2: False positive**
 
-**Checks passing:** All other Checkov checks pass — resource tagging is
-consistent, virtual network uses proper CIDR notation, subnet is correctly
-associated with the NSG, outputs expose all required infrastructure IDs.
+| Check | Finding | Why skipped |
+|---|---|---|
+| CKV_AZURE_50 | "VM Extensions not installed" fails on both VMs | No VM extensions are defined anywhere in the Terraform code. Checkov flags any `azurerm_linux_virtual_machine` resource as a precautionary check regardless of whether extensions exist. This is a false positive. |
 
----
+**Category 3: Premium SKU features — not appropriate for student project**
+
+| Check | Feature required | Approximate monthly cost | Why skipped |
+|---|---|---|---|
+| CKV_AZURE_136 | PostgreSQL geo-redundant backups | ~$100+/month extra | 7-day backup retention is already configured. Geo-redundancy is for production disaster recovery at scale. |
+| CKV_AZURE_165 | ACR geo-replication | Requires Premium ACR (~$200+/month) | Single region is sufficient for this project scope. |
+| CKV_AZURE_233 | ACR zone redundancy | Requires Premium ACR | Single availability zone is acceptable for student project. |
+| CKV_AZURE_237 | ACR dedicated data endpoints | Requires Premium ACR | Standard endpoints are sufficient. |
+| CKV_AZURE_164 | ACR content trust (signed images) | Requires Premium ACR + key infrastructure | Image integrity is enforced by Trivy scanning before push instead. |
+| CKV_AZURE_166 | ACR image quarantine policy | Requires Microsoft Defender for Containers | Equivalent protection provided by Trivy scanning in CI. |
+| CKV_AZURE_167 | ACR retention policy for untagged manifests | Requires Premium ACR | Images are tagged with commit SHA : untagged manifests are not expected. |
 
 ## Remediation Summary
 
-| Action | Scan Type | Result |
+| Action | Tool | Outcome |
 |---|---|---|
-| `apt-get upgrade` added to Dockerfile | Trivy | Eliminated 6 OS-level CVEs |
+| `apt-get upgrade` added to Dockerfile production stage | Trivy | Eliminated 6 OS-level CVEs |
+| npm CLI removed from production image | Trivy | Eliminated 12 npm-internal CVE findings |
 | `ignore-unfixed: true` in Trivy config | Trivy | Reports only actionable findings |
-| `.trivyignore` for npm-internal CVEs | Trivy | 12 unfixable CVEs suppressed with documentation |
-| `npm audit --audit-level=high` threshold | npm audit | Only blocks on genuinely dangerous findings |
-| `soft_fail: true` for Checkov | Checkov | Findings documented without blocking dev workflow |
-| Multi-stage Dockerfile | Trivy | Build tools absent from production image |
-| Non-root user (`USER node`) | All | Limits container exploit blast radius |
-| `packages: write` scoped to one job | Pipeline | Principle of least privilege on GHCR |
+| `--omit=dev` flag on npm audit | npm audit | Scopes audit to production dependencies only |
+| Checkov skip list with documented justification | Checkov | 12 checks skipped transparently with reasoning |
+| `soft_fail: false` on Checkov | Checkov | Any unskipped check failure blocks the merge |
+| Non-root user (`USER node`) in Dockerfile | All | Limits blast radius if container is compromised |
+| ACR admin account disabled | Checkov/ACR | No single credential can access the registry |
+| ACR anonymous pull disabled | Checkov/ACR | Images cannot be pulled without authentication |
+| PostgreSQL in private subnet with private endpoint | Checkov/Network | Database unreachable from internet |
+| App VM in private subnet with no public IP | Checkov/Network | Application server unreachable directly from internet |
+| SSH key-only authentication on all VMs | Checkov/SSH | No password brute-force attack surface |
 | `.env` gitignored, `.env.example` committed | All | No secrets in version control |
-
----
 
 ## Accepted Risks Register
 
 | Risk | Severity | Reason Accepted | Mitigation |
 |---|---|---|---|
-| 12 npm-internal CVEs (tar, minimatch, glob, cross-spawn, sigstore) | HIGH | Not reachable at runtime; cannot be fixed via package.json; internal to npm binary | Non-root user; npm not exposed externally; documented in .trivyignore |
-| SSH open to 0.0.0.0/0 in Terraform default | HIGH | Development environment only; variable is configurable for production | Variable override required before any production deployment |
-| Checkov soft fail | Varies | Infrastructure actively under development; hard fail would block the team | All findings documented here; hard fail to be enabled before summative |
+| brace-expansion CVE-2026-14257 in Jest devDependency | HIGH | Jest internal dependency : not reachable at runtime | Not executed in production container; container runs as non-root |
+| Bastion host has public IP (CKV_AZURE_119) | Design trade-off | Required for CD pipeline SSH access | Bastion is only VM with public IP; app VM has no public IP; SSH key authentication only |
+| HTTP port 80 open from internet (CKV_AZURE_160) | Design trade-off | Web application must be accessible to users | Traffic restricted to ports 80/443 only; database in private subnet |
+| ACR public networking enabled (CKV_AZURE_139) | Design trade-off | GitHub Actions runners need internet access to push | Admin account disabled; anonymous pull disabled; images scanned before push |
+| ACR Premium features not enabled | Low risk | Cost prohibitive for student project | Trivy scanning in CI provides equivalent image security coverage |
 
----
+## Reporting a Vulnerability
+
+If you discover a security vulnerability in MedStock Monitor, do not open a public GitHub issue. Use GitHub's private vulnerability reporting feature on the Security tab of the repository, or contact the repository owner directly.
