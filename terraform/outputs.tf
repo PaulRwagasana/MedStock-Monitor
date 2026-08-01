@@ -1,34 +1,39 @@
-output "docker_network_name" {
-  description = "The name of the Docker network shared by the MedStock services."
-  value       = docker_network.medstock_network.name
+output "resource_group_name" {
+  description = "The Azure resource group for the deployment."
+  value       = azurerm_resource_group.rg.name
 }
 
-output "docker_network_id" {
-  description = "The ID of the Docker network shared by the MedStock services."
-  value       = docker_network.medstock_network.id
+output "bastion_public_ip" {
+  description = "The public IP of the bastion host."
+  value       = azurerm_public_ip.bastion_ip.ip_address
 }
 
-output "backend_container_name" {
-  description = "The name of the backend container."
-  value       = docker_container.medstock_backend.name
+output "app_vm_name" {
+  description = "The name of the application VM."
+  value       = azurerm_linux_virtual_machine.app.name
 }
 
-output "backend_container_id" {
-  description = "The ID of the backend container."
-  value       = docker_container.medstock_backend.id
+output "postgres_server_name" {
+  description = "The PostgreSQL flexible server name."
+  value       = azurerm_postgresql_flexible_server.db.name
 }
 
-output "backend_url" {
-  description = "The URL used to reach the backend service from the host."
-  value       = "http://localhost:${var.backend_external_port}"
+output "postgres_fqdn" {
+  description = "The PostgreSQL server FQDN."
+  value       = azurerm_postgresql_flexible_server.db.fqdn
 }
 
-output "postgres_container_name" {
-  description = "The name of the PostgreSQL container."
-  value       = docker_container.postgres.name
+output "app_url" {
+  description = "The application endpoint exposed through the load balancer public IP."
+  value       = format("http://%s:5000", azurerm_public_ip.app_lb_ip.ip_address)
 }
 
-output "postgres_container_id" {
-  description = "The ID of the PostgreSQL container."
-  value       = docker_container.postgres.id
+output "acr_name" {
+  description = "The Azure Container Registry name."
+  value       = azurerm_container_registry.acr.name
+}
+
+output "acr_login_server" {
+  description = "The Azure Container Registry login server."
+  value       = azurerm_container_registry.acr.login_server
 }
