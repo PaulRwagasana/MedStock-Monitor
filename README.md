@@ -222,48 +222,40 @@ Copy `.env.example` to `.env` and fill in your values:
 
 ---
 
-## Terraform Usage
+## Summative DevOps Architecture
 
-The Azure Terraform configuration is stored under `terraform/azure` and uses modular code to provision:
+The production deployment now uses a layered cloud architecture:
 
-- a virtual network with public and private subnets
-- a bastion host in the public subnet
-- a private compute VM in the private subnet
-- Azure Database for PostgreSQL Flexible Server
-- Azure Container Registry (ACR)
+- Azure Virtual Network with public and private subnets
+- Bastion host in the public subnet for secure access
+- Application VM in the private subnet running the containerized backend
+- Azure Database for PostgreSQL Flexible Server for persistent storage
+- GitHub Actions CI for linting, testing, and security scanning
+- GitHub Actions CD for building the production image, pushing it to GHCR, and deploying via Ansible
 
-### Prerequisites
-
-- Azure CLI logged in: `az login`
-- Terraform installed locally (or use Azure Cloud Shell)
-- Access to the target Azure subscription
-
-### Init and Plan
-
-Run these commands from the `terraform/azure` directory:
-
-```bash
-cd terraform/azure
-terraform init
-terraform plan -out=plan.out
+```text
+User -> Internet -> Bastion Host -> App VM -> PostgreSQL Flexible Server
 ```
 
-### Authentication Options
-- Azure CLI auth: run `az login` before Terraform and do not set SP values.
-- Service principal auth: set the following values in `terraform.tfvars` or pass via `-var`:
+### Live Application
 
-```hcl
-client_id       = "<YOUR-SP-CLIENT-ID>"
-client_secret   = "<YOUR-SP-CLIENT-SECRET>"
-tenant_id       = "<YOUR-TENANT-ID>"
-subscription_id = "<YOUR-SUBSCRIPTION-ID>"
-```
+- URL: https://medstock-monitor.example.com
+- Status endpoint: /health
 
-### Notes
+### Operational Signals
 
-- Root module files are in `terraform/azure/main.tf`, `providers.tf`, `variables.tf`, and `outputs.tf`.
-- Submodules are in `terraform/azure/modules/{network,bastion,compute,db,registry}`.
-- Sensitive values such as `db_administrator_password` should be provided via `terraform.tfvars` or environment variables.
+- The backend exposes /health for readiness checks
+- The Ansible playbook verifies the app responds before declaring deployment successful
+- GitHub Actions uploads security scan results and deployment evidence for review
+
+---
+
+## Deployment Workflow
+
+1. Create a feature branch and open a pull request.
+2. The CI workflow runs linting, tests, npm audit, Checkov, Trivy, and the Docker build.
+3. Merge into main to trigger the CD workflow.
+4. The CD workflow builds the production image, pushes it to GHCR, and runs the Ansible playbook against the target host.
 
 ---
 

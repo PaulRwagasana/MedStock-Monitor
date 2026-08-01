@@ -10,6 +10,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Health Route
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "medstock-monitor",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Home Route
 app.get("/", (req, res) => {
   res.json({

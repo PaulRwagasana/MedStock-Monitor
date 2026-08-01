@@ -66,3 +66,16 @@ describe("GET /api/medicines/alerts/low-stock", () => {
     expect(res.statusCode).toBe(200);
   });
 });
+
+describe("GET /health", () => {
+  it("returns a healthy service status", async () => {
+    const res = await request(app).get("/health");
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual(
+      expect.objectContaining({
+        status: "ok",
+        service: "medstock-monitor",
+      })
+    );
+  });
+});
