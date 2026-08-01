@@ -38,4 +38,11 @@ coverage/
 
 # Misc
 *.tmp
-*.bak
+*.bak# Terraform local artifacts
+.terraform/
+.terraform.lock.hcl
+plan.out
+terraform.exe
+*.tfstate
+*.tfstate.backup
+*.tfvars

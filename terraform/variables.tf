@@ -1,48 +1,91 @@
-# ============================================================
-# variables.tf
-# Member 1 - Shared Terraform Variables (Docker)
-# ============================================================
-
-variable "network_name" {
-  description = "Name of the Docker bridge network."
+variable "resource_group_name" {
+  description = "Name of the Azure resource group."
   type        = string
-  default     = "medstock-network"
+  default     = "rg-medstock-monitor"
 }
 
-variable "backend_container_name" {
-  description = "Name of the backend application container."
+variable "location" {
+  description = "Azure region for all resources."
   type        = string
-  default     = "medstock-backend"
+  default     = "eastus"
 }
 
-variable "postgres_container_name" {
-  description = "Name of the PostgreSQL container."
+variable "vnet_name" {
+  description = "Name of the virtual network."
   type        = string
-  default     = "medstock-db"
+  default     = "medstock-vnet"
 }
 
-variable "backend_image" {
-  description = "Backend application image."
+variable "vnet_cidr" {
+  description = "CIDR block for the virtual network."
   type        = string
-  default     = "ghcr.io/cletusaabugre/medstock-monitor:ci"
+  default     = "10.10.0.0/16"
 }
 
-variable "backend_internal_port" {
-  description = "Port exposed inside the backend container."
-  type        = number
-  default     = 5000
+variable "public_subnet_name" {
+  description = "Name of the public subnet for the bastion host."
+  type        = string
+  default     = "medstock-public-subnet"
 }
 
-variable "backend_external_port" {
-  description = "Port exposed on the host."
-  type        = number
-  default     = 5000
+variable "public_subnet_cidr" {
+  description = "CIDR block for the public subnet."
+  type        = string
+  default     = "10.10.1.0/24"
 }
 
-variable "postgres_port" {
-  description = "PostgreSQL port."
-  type        = number
-  default     = 5432
+variable "private_subnet_name" {
+  description = "Name of the private subnet for the application VM."
+  type        = string
+  default     = "medstock-private-subnet"
+}
+
+variable "private_subnet_cidr" {
+  description = "CIDR block for the private subnet."
+  type        = string
+  default     = "10.10.2.0/24"
+}
+
+variable "db_subnet_name" {
+  description = "Name of the subnet for the Azure PostgreSQL flexible server."
+  type        = string
+  default     = "medstock-db-subnet"
+}
+
+variable "db_subnet_cidr" {
+  description = "CIDR block for the database subnet."
+  type        = string
+  default     = "10.10.3.0/24"
+}
+
+variable "bastion_vm_name" {
+  description = "Name of the bastion host VM."
+  type        = string
+  default     = "medstock-bastion"
+}
+
+variable "app_vm_name" {
+  description = "Name of the application VM."
+  type        = string
+  default     = "medstock-app"
+}
+
+variable "admin_username" {
+  description = "Admin username for both VMs."
+  type        = string
+  default     = "azureuser"
+}
+
+variable "admin_password" {
+  description = "Admin password for both VMs."
+  type        = string
+  sensitive   = true
+}
+
+variable "postgres_server_name" {
+  description = "Globally unique name for the Azure Database for PostgreSQL flexible server."
+  type        = string
+  default     = "medstock-psql-server"
 }
 
 variable "db_name" {
@@ -61,5 +104,16 @@ variable "db_password" {
   description = "PostgreSQL password."
   type        = string
   sensitive   = true
-  default     = "postgres"
+}
+
+variable "acr_name" {
+  description = "Globally unique Azure Container Registry name."
+  type        = string
+  default     = "medstockacr"
+}
+
+variable "acr_sku" {
+  description = "SKU for the Azure Container Registry."
+  type        = string
+  default     = "Basic"
 }

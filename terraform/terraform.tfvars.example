@@ -1,25 +1,15 @@
-resource_group_name = "rg-medstock-dev"
-location            = "eastus"
-environment         = "dev"
+network_name             = "medstock-network"
+backend_container_name   = "medstock-backend"
+postgres_container_name  = "medstock-db"
 
-vnet_name         = "vnet-medstock-dev"
-vnet_address_space = ["10.10.0.0/16"]
+backend_image         = "ghcr.io/cletusaabugre/medstock-monitor:ci"
+backend_internal_port = 5000
+backend_external_port = 5000
 
-subnet_name              = "snet-app"
-subnet_address_prefixes  = ["10.10.1.0/24"]
+postgres_port = 5432
 
-nsg_name = "nsg-medstock-dev"
+db_name = "medstock"
+db_user = "postgres"
 
-public_ip_name = "pip-medstock-dev"
-nic_name       = "nic-medstock-dev"
-
-# Restrict this to your own IP range in production — never leave as 0.0.0.0/0
-allowed_source_ip = "0.0.0.0/0"
-
-app_port = 5000
-
-tags = {
-  project     = "medstock-monitor"
-  environment = "dev"
-  managedBy   = "terraform"
-}
+# Change this before any real deployment — never use the default in production
+db_password = "changeme"
