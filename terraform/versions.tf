@@ -2,11 +2,13 @@ terraform {
   required_version = ">= 1.5.0"
 
   required_providers {
-    docker = {
-      source  = "kreuzwerker/docker"
-      version = "~> 3.0"
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.0"
     }
   }
 }
 
-provider "docker" {}
+provider "azurerm" {
+  features {}
+}

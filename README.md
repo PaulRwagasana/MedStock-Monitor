@@ -304,9 +304,52 @@ All cloud resources are provisioned via `terraform/azure/`. The configuration is
 
 ---
 
-## Configuration Management (Ansible)
+## Terraform Usage
 
-The `ansible/site.yml` playbook runs against the App VM and:
+The Azure Terraform configuration is stored under `terraform/azure` and uses modular code to provision:
+
+- a virtual network with public and private subnets
+- a bastion host in the public subnet
+- a private compute VM in the private subnet
+- Azure Database for PostgreSQL Flexible Server
+- Azure Container Registry (ACR)
+
+### Prerequisites
+
+- Azure CLI logged in: `az login`
+- Terraform installed locally (or use Azure Cloud Shell)
+- Access to the target Azure subscription
+
+### Init and Plan
+
+Run these commands from the `terraform/azure` directory:
+
+```bash
+cd terraform/azure
+terraform init
+terraform plan -out=plan.out
+```
+
+### Authentication Options
+- Azure CLI auth: run `az login` before Terraform and do not set SP values.
+- Service principal auth: set the following values in `terraform.tfvars` or pass via `-var`:
+
+```hcl
+client_id       = "<YOUR-SP-CLIENT-ID>"
+client_secret   = "<YOUR-SP-CLIENT-SECRET>"
+tenant_id       = "<YOUR-TENANT-ID>"
+subscription_id = "<YOUR-SUBSCRIPTION-ID>"
+```
+
+### Notes
+
+- Root module files are in `terraform/azure/main.tf`, `providers.tf`, `variables.tf`, and `outputs.tf`.
+- Submodules are in `terraform/azure/modules/{network,bastion,compute,db,registry}`.
+- Sensitive values such as `db_administrator_password` should be provided via `terraform.tfvars` or environment variables.
+
+---
+
+## Future Microservices Architecture
 
 1. Installs Docker and required packages
 2. Configures UFW firewall (allow SSH + port 5000, deny all other inbound)
@@ -339,13 +382,14 @@ Key measures in place:
 
 ## Sample Medicine Dataset
 
-| Name | Category | Initial Qty | Threshold |
-|------|----------|-------------|-----------|
-| Paracetamol | Analgesics | 120 | 20 |
-| Amoxicillin | Antibiotics | 30 | 15 |
-| Coartem | Antimalarials | 8 | 10 |
-| Ibuprofen | Analgesics | 65 | 20 |
-| Metformin | Diabetes | 40 | 15 |
+| Member | Role |
+|--------|------|
+| Paul Rwagasana | DevOps Lead — Repository setup, CI, branch protection |
+| Mika Rurangwa | Backend Developer — Express API, data storage, endpoints |
+| Monica Akoi Dau Ahol | Frontend & Documentation — UI, README, sample data |
+| Cletus Ayeebo Abugre | Frontend Styling — UI design, CSS, visual presentation |
+| Munezero Hubert | Backend Developer — Terraform , Networking security rules |
+
 
 ---
 
