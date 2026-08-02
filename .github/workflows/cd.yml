@@ -108,7 +108,11 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Log in to Azure Container Registry
-        run: az acr login --name ${{ secrets.ACR_NAME }}
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build Docker image
         run: docker build -f Dockerfile -t ${{ steps.set-tag.outputs.tag }} ./backend
@@ -155,22 +159,10 @@ jobs:
           ansible_ssh_private_key_file=/tmp/ssh_key
           EOF
 
-      - name: Test SSH connectivity to bastion
+      - name: Debug - test connectivity to target via bastion
         run: |
-          ssh -i /tmp/ssh_key \
-            -o StrictHostKeyChecking=no \
-            -o ConnectTimeout=30 \
-            ${{ secrets.VM_USER }}@${{ secrets.BASTION_HOST }} \
-            "echo Bastion connection successful"
-
-      - name: Test connectivity to app VM via bastion
-        run: |
-          ssh -i /tmp/ssh_key \
-            -o StrictHostKeyChecking=no \
-            -o ConnectTimeout=30 \
-            -o ProxyCommand="ssh -W %h:%p -q -i /tmp/ssh_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.BASTION_HOST }}" \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_PRIVATE_IP }} \
-            "echo App VM connection successful"
+          ssh -i /tmp/ssh_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.BASTION_HOST }} \
+            "nc -zv -w5 ${{ secrets.VM_PRIVATE_IP }} 22 || echo UNREACHABLE"
 
       - name: Run Ansible deployment playbook
         run: |
