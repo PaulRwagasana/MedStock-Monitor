@@ -46,3 +46,6 @@ terraform.exe
 *.tfstate
 *.tfstate.backup
 *.tfvars
+medstock_deploy_key
+medstock_deploy_key.pub
+*.pem

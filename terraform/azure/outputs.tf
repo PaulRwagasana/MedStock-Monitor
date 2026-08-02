@@ -1,3 +1,8 @@
+output "resource_group_name" {
+  description = "Name of the managed resource group"
+  value       = azurerm_resource_group.rg.name
+}
+
 output "vnet_id" {
   description = "Virtual network ID"
   value       = module.network.vnet_id

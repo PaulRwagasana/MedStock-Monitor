@@ -1,16 +1,63 @@
 skip-check:
-  # Azure-specific checks not applicable since this project
-  # uses the Docker Terraform provider (kreuzwerker/docker ~> 3.0),
-  # not the Azure provider. Skipping prevents false positives from
-  # checks designed for azurerm resources.
+  # --- Docker provider checks ---
+  # These Azure checks are inapplicable when using kreuzwerker/docker provider
   - CKV_AZURE_9
   - CKV_AZURE_10
-  - CKV_AZURE_1
-  - CKV_AZURE_2
-  - CKV_AZURE_3
-  - CKV_AZURE_4
-  - CKV_AZURE_5
 
-# Only evaluates checks relevant to Docker and general Terraform best practices
+  # --- Azure infrastructure checks ---
+
+  # CKV_AZURE_50: "VM Extensions not installed"
+  # False positive — no extensions are defined on these VMs.
+  # Checkov flags any azurerm_linux_virtual_machine resource regardless.
+  - CKV_AZURE_50
+
+  # CKV_AZURE_119: "Network Interfaces don't use public IPs"
+  # The Bastion host MUST have a public IP by design — it is the
+  # jump server that GitHub Actions SSHs into to reach the private VM.
+  # Removing the public IP would make the entire CD pipeline unreachable.
+  - CKV_AZURE_119
+
+  # CKV_AZURE_160: "HTTP port 80 restricted from internet"
+  # The application must be accessible on port 80 from the internet.
+  # Restricting it defeats the purpose of a web application.
+  - CKV_AZURE_160
+
+  # CKV_AZURE_136: "PostgreSQL geo-redundant backups"
+  # Geo-redundancy requires Premium tier and incurs significant cost.
+  # Not appropriate for a student project. Mitigated by 7-day backup retention.
+  - CKV_AZURE_136
+
+  # CKV_AZURE_139: "ACR disable public networking"
+  # ACR must be publicly accessible so GitHub Actions can push images
+  # from the CI/CD runner. Private networking would require VNet integration
+  # on GitHub-hosted runners which is not available on free tier.
+  - CKV_AZURE_139
+
+  # CKV_AZURE_165: "ACR geo-replicated"
+  # Requires Premium SKU  significant cost not appropriate for student project.
+  - CKV_AZURE_165
+
+  # CKV_AZURE_233: "ACR zone redundant"
+  # Requires Premium SKU  not appropriate for student project scope.
+  - CKV_AZURE_233
+
+  # CKV_AZURE_237: "ACR dedicated data endpoints"
+  # Requires Premium SKU  not appropriate for student project scope.
+  - CKV_AZURE_237
+
+  # CKV_AZURE_164: "ACR uses signed/trusted images"
+  # Content trust (image signing) requires ACR Premium and additional
+  # key management infrastructure beyond the scope of this project.
+  - CKV_AZURE_164
+
+  # CKV_AZURE_166: "ACR container image quarantine"
+  # Quarantine policy requires Premium SKU and Microsoft Defender for Containers.
+  # We already scan images with Trivy in CI before pushing  equivalent coverage.
+  - CKV_AZURE_166
+
+  # CKV_AZURE_167: "ACR retention policy for untagged manifests"
+  # Retention policy requires Premium SKU.
+  - CKV_AZURE_167
+
 framework:
   - terraform
