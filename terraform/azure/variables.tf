@@ -44,3 +44,24 @@ variable "tags" {
     environment = "production"
   }
 }
+
+variable "subscription_id" {
+  type    = string
+  default = ""
+}
+
+variable "client_id" {
+  type    = string
+  default = ""
+}
+
+variable "client_secret" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "tenant_id" {
+  type    = string
+  default = ""
+}
