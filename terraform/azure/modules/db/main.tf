@@ -1,3 +1,4 @@
+# checkov:skip=CKV2_AZURE_57: Using VNet-integrated delegated subnet (private-by-design) instead of Private Link/private endpoint. These are mutually exclusive deployment models for Postgres Flexible Server; VNet integration is the recommended private-access pattern for this SKU tier.
 resource "azurerm_postgresql_flexible_server" "db" {
   name                          = "${var.name_prefix}-db"
   resource_group_name           = var.resource_group_name

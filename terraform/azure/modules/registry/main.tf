@@ -1,3 +1,4 @@
+# checkov:skip=CKV_AZURE_163: Vulnerability scanning requires Microsoft Defender for Cloud container registry plan (Standard or Premium SKU), which is out of scope for this student subscription. Accepted risk; would enable in production.
 resource "azurerm_container_registry" "acr" {
   name                = "${var.name_prefix}acr"
   resource_group_name = var.resource_group_name
