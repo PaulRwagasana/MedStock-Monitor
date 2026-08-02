@@ -128,7 +128,7 @@
         env:
           PORT: "{{ container_port | string }}"
           DB_HOST: "{{ db_host | default(db_fqdn | default(db_container_name, true), true) }}"
-          DB_PORT: "{{ db_port | default('5432', true) }}"
+          DB_PORT: "{{ db_port | default('5432', true) | string }}"
           DB_USER: "{{ db_user }}"
           DB_PASSWORD: "{{ db_password | default(vault_db_password, true) }}"
           DB_NAME: "{{ db_name }}"
