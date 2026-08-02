@@ -73,19 +73,23 @@
         state: started
         enabled: true
 
-    - name: Log in to GitHub Container Registry
+    - name: Log in to the container registry used by the app image
       community.docker.docker_login:
-        registry_url: ghcr.io
-        username: "{{ github_org }}"
-        password: "{{ vault_ghcr_token }}"
-      when: ghcr_package_is_private | bool
+        registry_url: "{{ registry_url | default('') }}"
+        username: "{{ registry_username | default(github_org | default(ansible_user)) }}"
+        password: "{{ registry_password | default(vault_ghcr_token, true) }}"
+      when:
+        - (ghcr_package_is_private | bool) or ((registry_url | default('') | trim | length) > 0)
+        - (registry_username | default('') | trim | length) > 0
+        - (registry_password | default(vault_ghcr_token, true) | string | trim | length) > 0
 
-    - name: Create the Docker network for the app and database
+    - name: Create the Docker network for the app and database when using a local database container
       community.docker.docker_network:
         name: "{{ network_name }}"
         state: present
+      when: deploy_local_db | default(false) | bool
 
-    - name: Run the Postgres container
+    - name: Run the Postgres container when using a local database container
       community.docker.docker_container:
         name: "{{ db_container_name }}"
         image: "postgres:15"
@@ -95,12 +99,13 @@
           - name: "{{ network_name }}"
         env:
           POSTGRES_USER: "{{ db_user }}"
-          POSTGRES_PASSWORD: "{{ vault_db_password }}"
+          POSTGRES_PASSWORD: "{{ db_password | default(vault_db_password, true) }}"
           POSTGRES_DB: "{{ db_name }}"
         volumes:
           - "medstock_pg_data:/var/lib/postgresql/data"
+      when: deploy_local_db | default(false) | bool
 
-    - name: Wait for Postgres to accept connections
+    - name: Wait for Postgres to accept connections when using a local database container
       ansible.builtin.command:
         cmd: docker exec {{ db_container_name }} pg_isready -U {{ db_user }}
       register: pg_ready
@@ -108,6 +113,7 @@
       retries: 10
       delay: 3
       changed_when: false
+      when: deploy_local_db | default(false) | bool
 
     - name: Deploy MedStock Monitor
       community.docker.docker_container:
@@ -116,16 +122,15 @@
         pull: true
         state: started
         restart_policy: unless-stopped
-        networks:
-          - name: "{{ network_name }}"
+        networks: "{{ ([{'name': network_name}] if (deploy_local_db | default(false) | bool) else []) }}"
         ports:
           - "{{ app_port }}:{{ container_port }}"
         env:
           PORT: "{{ container_port | string }}"
-          DB_HOST: "{{ db_container_name }}"
-          DB_PORT: "5432"
+          DB_HOST: "{{ db_host | default(db_fqdn | default(db_container_name, true), true) }}"
+          DB_PORT: "{{ db_port | default('5432', true) }}"
           DB_USER: "{{ db_user }}"
-          DB_PASSWORD: "{{ vault_db_password }}"
+          DB_PASSWORD: "{{ db_password | default(vault_db_password, true) }}"
           DB_NAME: "{{ db_name }}"
 
     - name: Wait for MedStock Monitor to answer
