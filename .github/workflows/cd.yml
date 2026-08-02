@@ -169,6 +169,10 @@ jobs:
           ssh -i /tmp/ssh_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.BASTION_HOST }} \
             "nc -zv -w5 ${{ secrets.VM_PRIVATE_IP }} 22 || echo UNREACHABLE"
 
+      - name: Debug - print resolved image tag
+        run: |
+          echo "image-tag output: [${{ needs.build-and-push.outputs.image-tag }}]"
+
       - name: Run Ansible deployment playbook
         run: |
           ansible-playbook -i /tmp/inventory.ini ansible/site.yml \
