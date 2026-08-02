@@ -11,7 +11,7 @@ app_image: "ghcr.io/{{ github_org }}/{{ app_name }}:{{ image_tag }}"
 deploy_local_db: false
 db_host: medstock-psql-server-esrzd.postgres.database.azure.com
 db_fqdn: "{{ db_host }}"
-db_port: 5432
+db_port: "5432"
 db_name: medstock
 db_user: postgres
 # Change to the real Azure DB password before running the playbook.
