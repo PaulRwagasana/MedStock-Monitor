@@ -35,6 +35,7 @@ module "bastion" {
   subnet_id            = module.network.public_subnet_id
   admin_username       = var.admin_username
   admin_ssh_public_key = var.admin_ssh_public_key
+  vm_size              = "Standard_D2s_v3"
   allowed_ssh_cidrs    = var.allowed_ssh_cidrs
   tags                 = var.tags
 }
@@ -48,6 +49,7 @@ module "compute" {
   nsg_id               = module.network.private_nsg_id
   admin_username       = var.admin_username
   admin_ssh_public_key = var.admin_ssh_public_key
+  vm_size              = "Standard_D2s_v3"
   tags                 = var.tags
 }
 
@@ -59,6 +61,7 @@ module "registry" {
   sku                 = "Basic"
   admin_enabled       = false
   principal_id        = module.compute.identity_principal_id
+  enable_acr_pull     = true
   tags                = var.tags
 }
 
@@ -68,7 +71,21 @@ module "db" {
   location               = azurerm_resource_group.rg.location
   name_prefix            = var.name_prefix
   subnet_id              = azurerm_subnet.db_subnet.id
+  private_dns_zone_id    = azurerm_private_dns_zone.postgres.id
   administrator_login    = var.db_administrator_login
   administrator_password = var.db_administrator_password
   tags                   = var.tags
+}
+
+resource "azurerm_private_dns_zone" "postgres" {
+  name                = "${var.name_prefix}.postgres.database.azure.com"
+  resource_group_name = azurerm_resource_group.rg.name
+  tags                = var.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "postgres_link" {
+  name                  = "${var.name_prefix}-postgres-dns-link"
+  private_dns_zone_name = azurerm_private_dns_zone.postgres.name
+  resource_group_name   = azurerm_resource_group.rg.name
+  virtual_network_id    = module.network.vnet_id
 }
