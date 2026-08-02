@@ -17,7 +17,7 @@ variable "name_prefix" {
 variable "sku_name" {
   description = "SKU name for PostgreSQL flexible server"
   type        = string
-  default     = "Standard_B1ms"
+  default     = "B_Standard_B1ms"
 }
 
 variable "tier" {

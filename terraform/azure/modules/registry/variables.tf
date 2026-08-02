@@ -37,3 +37,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_acr_pull" {
+  description = "Whether to create the AcrPull role assignment. Kept separate from principal_id since principal_id is often unknown until apply, and count/for_each cannot depend on unknown values."
+  type        = bool
+  default     = true
+}

@@ -13,7 +13,6 @@ resource "azurerm_network_interface" "compute_nic" {
 }
 
 resource "azurerm_network_interface_security_group_association" "compute_nsg_assoc" {
-  count                     = var.nsg_id == "" ? 0 : 1
   network_interface_id      = azurerm_network_interface.compute_nic.id
   network_security_group_id = var.nsg_id
 }
@@ -25,7 +24,7 @@ resource "azurerm_linux_virtual_machine" "compute_vm" {
   size                  = var.vm_size
   network_interface_ids = [azurerm_network_interface.compute_nic.id]
 
-  admin_username                = var.admin_username
+  admin_username                  = var.admin_username
   disable_password_authentication = true
 
   admin_ssh_key {
@@ -40,7 +39,7 @@ resource "azurerm_linux_virtual_machine" "compute_vm" {
 
   source_image_reference {
     publisher = "Canonical"
-    offer     = "UbuntuServer"
+    offer     = "0001-com-ubuntu-server-jammy"
     sku       = "22_04-lts-gen2"
     version   = "latest"
   }
@@ -49,7 +48,7 @@ resource "azurerm_linux_virtual_machine" "compute_vm" {
     type = "SystemAssigned"
   }
 
-  custom_data = var.cloud_init
+  custom_data = base64encode(var.cloud_init)
 
   tags = var.tags
 }

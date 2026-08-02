@@ -46,6 +46,13 @@ terraform.exe
 *.tfstate
 *.tfstate.backup
 *.tfvars
-medstock_deploy_key
-medstock_deploy_key.pub
-*.pem
+
+# Terraform sensitive files
+terraform/azure/terraform.tfvars
+terraform/azure/.terraform/
+terraform/azure/.terraform.lock.hcl
+terraform/azure/terraform.tfstate
+terraform/azure/terraform.tfstate.backup
+*.tfstate
+*.tfstate.backup
+.terraform/

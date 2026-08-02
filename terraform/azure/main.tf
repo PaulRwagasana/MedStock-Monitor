@@ -1,11 +1,7 @@
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
   location = var.location
-
-  tags = {
-    environment = var.environment
-    project     = "medstock-monitor"
-  }
+  tags     = var.tags
 }
 
 module "network" {
@@ -13,8 +9,21 @@ module "network" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   name_prefix         = var.name_prefix
-  tags = {
-    environment = var.environment
+  tags                = var.tags
+}
+
+resource "azurerm_subnet" "db_subnet" {
+  name                 = "${var.name_prefix}-db-subnet"
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = module.network.vnet_name
+  address_prefixes     = ["10.0.3.0/24"]
+
+  delegation {
+    name = "psql-delegation"
+    service_delegation {
+      name    = "Microsoft.DBforPostgreSQL/flexibleServers"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/action"]
+    }
   }
 }
 
@@ -24,23 +33,11 @@ module "bastion" {
   location             = azurerm_resource_group.rg.location
   name_prefix          = var.name_prefix
   subnet_id            = module.network.public_subnet_id
+  admin_username       = var.admin_username
   admin_ssh_public_key = var.admin_ssh_public_key
+  vm_size              = "Standard_D2s_v3"
   allowed_ssh_cidrs    = var.allowed_ssh_cidrs
-  tags = {
-    environment = var.environment
-  }
-}
-
-module "db" {
-  source                 = "./modules/db"
-  resource_group_name    = azurerm_resource_group.rg.name
-  location               = azurerm_resource_group.rg.location
-  name_prefix            = var.name_prefix
-  administrator_password = var.db_administrator_password
-  subnet_id              = module.network.private_subnet_id
-  tags = {
-    environment = var.environment
-  }
+  tags                 = var.tags
 }
 
 module "compute" {
@@ -50,10 +47,10 @@ module "compute" {
   name_prefix          = var.name_prefix
   subnet_id            = module.network.private_subnet_id
   nsg_id               = module.network.private_nsg_id
+  admin_username       = var.admin_username
   admin_ssh_public_key = var.admin_ssh_public_key
-  tags = {
-    environment = var.environment
-  }
+  vm_size              = "Standard_D2s_v3"
+  tags                 = var.tags
 }
 
 module "registry" {
@@ -61,9 +58,59 @@ module "registry" {
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
   name_prefix         = var.name_prefix
-  admin_enabled       = var.acr_admin_enabled
+  sku                 = "Basic"
+  admin_enabled       = false
   principal_id        = module.compute.identity_principal_id
-  tags = {
-    environment = var.environment
+  enable_acr_pull     = true
+  tags                = var.tags
+}
+
+module "db" {
+  source                 = "./modules/db"
+  resource_group_name    = azurerm_resource_group.rg.name
+  location               = azurerm_resource_group.rg.location
+  name_prefix            = var.name_prefix
+  subnet_id              = azurerm_subnet.db_subnet.id
+  private_dns_zone_id    = azurerm_private_dns_zone.postgres.id
+  administrator_login    = var.db_administrator_login
+  administrator_password = var.db_administrator_password
+  tags                   = var.tags
+}
+
+resource "azurerm_private_dns_zone" "postgres" {
+  name                = "${var.name_prefix}.postgres.database.azure.com"
+  resource_group_name = azurerm_resource_group.rg.name
+  tags                = var.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "postgres_link" {
+  name                  = "${var.name_prefix}-postgres-dns-link"
+  private_dns_zone_name = azurerm_private_dns_zone.postgres.name
+  resource_group_name   = azurerm_resource_group.rg.name
+  virtual_network_id    = module.network.vnet_id
+}
+
+resource "azurerm_network_security_group" "db_nsg" {
+  name                = "${var.name_prefix}-db-nsg"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+
+  security_rule {
+    name                       = "AllowPostgresFromPrivateSubnet"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "5432"
+    source_address_prefix      = "10.0.2.0/24"
+    destination_address_prefix = "*"
   }
+
+  tags = var.tags
+}
+
+resource "azurerm_subnet_network_security_group_association" "db_nsg_assoc" {
+  subnet_id                 = azurerm_subnet.db_subnet.id
+  network_security_group_id = azurerm_network_security_group.db_nsg.id
 }
