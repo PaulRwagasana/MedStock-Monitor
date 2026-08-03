@@ -1,133 +1,87 @@
-# 🌐 Terraform — MedStock Monitor Infrastructure
+# Azure Terraform  MedStock Monitor
 
-> **Provisions the Docker networking and container infrastructure for the MedStock Monitor application.**
-
----
-
-## Overview
-
-This directory contains the Terraform configuration for the MedStock Monitor infrastructure. It uses the Docker provider to provision a dedicated network, a PostgreSQL database container, and the backend application container — all managed as code.
-
----
-
-## What It Provisions
-
-| Resource | Name | Description |
-|----------|------|-------------|
-| Docker Network | `medstock-network` | Isolated bridge network shared by all services |
-| Postgres Container | `medstock-db` | PostgreSQL 15 database with a persistent volume |
-| Backend Container | `medstock-backend` | MedStock Monitor application pulled from GHCR |
-
----
+Modular Terraform configuration that provisions the production infrastructure for MedStock Monitor on Microsoft Azure: a private VNet, a bastion host, a private application VM, a managed PostgreSQL database, and an Azure Container Registry (ACR).
 
 ## Prerequisites
 
-- [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5
-- [Docker](https://docs.docker.com/get-docker/) running locally
+- An Azure subscription and `az login` access.
+- Terraform >= 1.5.0.
+- An Azure Resource Group (Terraform creates one, `resource_group_name` var).
+- (Recommended) An Azure Storage Account + blob container for remote state.
 
----
+## Directory layout
 
-## How to Run
-
-### 1. Change into this directory
-
-```bash
-cd terraform
+```
+terraform/azure/
+├── providers.tf         # azurerm provider configuration
+├── main.tf              # root module: resource group, DB subnet, DNS zone, module wiring
+├── variables.tf         # root-level variables
+├── outputs.tf           # bastion_public_ip, vm_private_ip, acr_login_server, db_host, app_url, ...
+├── modules/
+│   ├── network/          # VNet, public/private subnets, NSGs
+│   ├── bastion/           # Public VM + public IP + NSG (SSH + app port)
+│   ├── compute/           # Private app VM, NIC, managed identity
+│   ├── db/                # Azure Database for PostgreSQL Flexible Server (private endpoint)
+│   └── registry/          # Azure Container Registry + ACR pull role assignment
+└── README.md
 ```
 
-### 2. Copy the example variables file
+## Module responsibilities
 
-```bash
-cp terraform.tfvars.example terraform.tfvars
+**network** : VNet with a public subnet (bastion) and a private subnet (app VM). The public subnet's NSG allows inbound SSH and the app port; the private subnet's NSG denies all inbound internet traffic. A separate delegated subnet in `main.tf` hosts the PostgreSQL Flexible Server.
+
+**bastion** : Small VM in the public subnet with a static public IP. Its NSG allows SSH (from `allowed_ssh_cidrs`) and the app port (`app_port`, default `5000`). The Ansible playbook (`ansible/site.yml`, bastion play) installs `socat` on this VM as a systemd service that forwards the app port to the private app VM's internal IP — this is what makes the app reachable from the internet, since the app VM itself has no public IP.
+
+**compute** : Private application VM, no public IP, reached only through the bastion. Has a system-assigned managed identity used to authenticate to ACR (`acrPull` role).
+
+**db** : Azure Database for PostgreSQL Flexible Server, deployed into a delegated subnet with a private DNS zone. Not reachable from the public internet.
+
+**registry** : Azure Container Registry. Admin account and anonymous pull are disabled; the app VM's managed identity is granted `acrPull`.
+
+
+## Remote state
+
+Not currently configured : state is local. To add remote state, add a `backend.tf`:
+
+```hcl
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "rg-terraform-state"
+    storage_account_name = "tfstate<unique>"
+    container_name       = "tfstate"
+    key                  = "medstock.tfstate"
+  }
+}
 ```
 
-Fill in your values. Never commit `terraform.tfvars` — it is listed in `.gitignore`.
-
-### 3. Initialize Terraform
+## Usage
 
 ```bash
+az login
+az account set --subscription "<SUBSCRIPTION_ID>"
+
+cd terraform/azure
 terraform init
+terraform plan -var-file=terraform.tfvars
+terraform apply -var-file=terraform.tfvars
 ```
 
-### 4. Review the plan
+For service-principal auth instead of `az login`, set in `terraform.tfvars` or via `-var`:
 
-```bash
-terraform plan -var-file="terraform.tfvars"
+```hcl
+client_id       = "<SP-CLIENT-ID>"
+client_secret   = "<SP-CLIENT-SECRET>"
+tenant_id       = "<TENANT-ID>"
+subscription_id = "<SUBSCRIPTION-ID>"
 ```
 
-### 5. Apply
+## CI/CD authentication
 
-```bash
-terraform apply -var-file="terraform.tfvars"
-```
+The CD workflow (`.github/workflows/cd.yml`) authenticates to Azure with `azure/login` using an `AZURE_CREDENTIALS` secret (JSON from `az ad sp create-for-rbac`), and to ACR with `azure/docker-login` using `ACR_LOGIN_SERVER` / `ACR_USERNAME` / `ACR_PASSWORD`.
 
-Type `yes` when prompted. Key infrastructure details will be printed as outputs on completion.
+## Ansible integration
 
-### 6. Verify containers are running
+Terraform provisions the infrastructure; Ansible (`ansible/site.yml`) configures it. Two plays run against the inventory produced from Terraform's outputs (`bastion_public_ip`, `vm_private_ip`):
 
-```bash
-docker ps
-docker network ls
-```
-
-### 7. Destroy when done
-
-```bash
-terraform destroy -var-file="terraform.tfvars"
-```
-
----
-
-## Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `network_name` | Name of the Docker bridge network | `medstock-network` |
-| `backend_container_name` | Name of the backend container | `medstock-backend` |
-| `postgres_container_name` | Name of the PostgreSQL container | `medstock-db` |
-| `backend_image` | Backend image pulled from GHCR | `ghcr.io/cletusaabugre/medstock-monitor:ci` |
-| `backend_internal_port` | Port the app listens on inside the container | `5000` |
-| `backend_external_port` | Port exposed on the host | `5000` |
-| `postgres_port` | PostgreSQL port | `5432` |
-| `db_name` | PostgreSQL database name | `medstock` |
-| `db_user` | PostgreSQL username | `postgres` |
-| `db_password` | PostgreSQL password (sensitive) | `postgres` |
-
-> **Note:** Change `db_password` from the default before any real deployment.
-
----
-
-## Outputs
-
-| Output | Description |
-|--------|-------------|
-| `docker_network_name` | Name of the Docker network |
-| `docker_network_id` | ID of the Docker network |
-| `backend_container_name` | Name of the backend container |
-| `backend_container_id` | ID of the backend container |
-| `backend_url` | URL to reach the app from the host |
-| `postgres_container_name` | Name of the Postgres container |
-| `postgres_container_id` | ID of the Postgres container |
-
----
-
-## File Structure
-
-```text
-terraform/
-├── main.tf                   # Docker network and Postgres container
-├── compute.tf                # Backend application container
-├── versions.tf               # Terraform and Docker provider version constraints
-├── variables.tf              # Input variable declarations
-├── outputs.tf                # Output value declarations
-├── terraform.tfvars.example  # Example variable values (safe to commit)
-└── README.md                 # This file
-```
-
----
-
-## Security Notes
-
-- Never commit `terraform.tfvars` — it is gitignored
-- Change `db_password` from the default value before any real deployment
-- The backend container only exposes port 5000 — the database port is not published to the host
+1. **medstock** (app VM): installs Docker, hardens SSH, deploys the app container.
+2. **bastion**: installs and enables the `socat` forwarding service that exposes the app on the bastion's public IP.
