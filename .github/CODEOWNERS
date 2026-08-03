@@ -7,51 +7,51 @@
 # ------------------------------------------------------------
 # Backend & Ansible
 # ------------------------------------------------------------
-/backend/                @Mika
+/backend/                @mikarurangwa
 
 # ------------------------------------------------------------
 # Frontend
 # ------------------------------------------------------------
-/frontend/               @Monica
-/public/                 @Monica
+/frontend/               @Monica486-bot
+/public/                 @Monica486-bot
 
 # Frontend ↔ Backend Integration
-/api/                    @Cletus
+/api/                    @CletusAAbugre
 
 # ------------------------------------------------------------
 # Infrastructure as Code
 # ------------------------------------------------------------
-/terraform/              @Cletus @Paul @Hubert
+/terraform/              @CletusAAbugre @PaulRwagasana @Hubert2c
 
 # ------------------------------------------------------------
 # Configuration Management
 # ------------------------------------------------------------
-/ansible/                @Mika
+/ansible/                @mikarurangwa
 
 # ------------------------------------------------------------
 # Networking
 # ------------------------------------------------------------
-/network/                @Hubert
+/network/                @Hubert2c
 
 # ------------------------------------------------------------
 # GitHub Actions, CI/CD, DevSecOps
 # ------------------------------------------------------------
-/.github/                @Paul
+/.github/                @PaulRwagasana
 
 # ------------------------------------------------------------
 # Documentation
 # ------------------------------------------------------------
-README.md                @Monica
-SECURITY.md              @Paul
-CHANGELOG.md             @Monica
+README.md                @Monica486-bot
+SECURITY.md              @PaulRwagasana
+CHANGELOG.md             @Monica486-bot
 
 # ------------------------------------------------------------
 # Docker & Deployment
 # ------------------------------------------------------------
-Dockerfile               @Mika
-docker-compose.yml       @Mika
+Dockerfile               @mikarurangwa
+docker-compose.yml       @mikarurangwa
 
 # ------------------------------------------------------------
 # Repository-wide ownership
 # ------------------------------------------------------------
-*                        @Paul
+*                        @PaulRwagasana
