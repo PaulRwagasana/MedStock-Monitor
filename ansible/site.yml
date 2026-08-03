@@ -80,7 +80,7 @@
         password: "{{ registry_password | default(vault_ghcr_token, true) }}"
       when:
         - (ghcr_package_is_private | bool) or ((registry_url | default('') | trim | length) > 0)
-        - (registry_username | default('') | trim | length) > 0
+        - (registry_username | default(github_org | default(ansible_user)) | string | trim | length) > 0
         - (registry_password | default(vault_ghcr_token, true) | string | trim | length) > 0
 
     - name: Create the Docker network for the app and database when using a local database container
