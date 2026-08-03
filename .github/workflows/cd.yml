@@ -180,6 +180,7 @@ jobs:
             --extra-vars "vault_db_password=${{ secrets.DB_PASSWORD }}" \
             --extra-vars "vault_ghcr_token=${{ secrets.ACR_PASSWORD }}" \
             --extra-vars "registry_url=${{ secrets.ACR_LOGIN_SERVER }}" \
+            --extra-vars "registry_username=${{ secrets.ACR_USERNAME }}" \
             --extra-vars "github_org=${{ secrets.ACR_USERNAME }}"
 
       - name: Clean up sensitive files
