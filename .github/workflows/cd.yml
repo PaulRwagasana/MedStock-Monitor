@@ -179,6 +179,7 @@ jobs:
             --extra-vars "app_image=${{ secrets.ACR_LOGIN_SERVER }}/${{ needs.build-and-push.outputs.image-tag }}" \
             --extra-vars "vault_db_password=${{ secrets.DB_PASSWORD }}" \
             --extra-vars "vault_ghcr_token=${{ secrets.ACR_PASSWORD }}" \
+            --extra-vars "registry_url=${{ secrets.ACR_LOGIN_SERVER }}" \
             --extra-vars "github_org=${{ secrets.ACR_USERNAME }}"
 
       - name: Clean up sensitive files
