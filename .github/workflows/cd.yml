@@ -100,7 +100,7 @@ jobs:
 
       - name: Set image tag using commit SHA
         id: set-tag
-        run: echo "tag=${{ secrets.ACR_LOGIN_SERVER }}/medstock-monitor:${{ github.sha }}" >> $GITHUB_OUTPUT
+        run: echo "tag=medstock-monitor:${{ github.sha }}" >> $GITHUB_OUTPUT
 
       - name: Log in to Azure
         uses: azure/login@v1
@@ -115,12 +115,12 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build Docker image
-        run: docker build -f Dockerfile -t ${{ steps.set-tag.outputs.tag }} ./backend
+        run: docker build -f Dockerfile -t ${{ secrets.ACR_LOGIN_SERVER }}/${{ steps.set-tag.outputs.tag }} ./backend
 
       - name: Scan image with Trivy before pushing
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ steps.set-tag.outputs.tag }}
+          image-ref: ${{ secrets.ACR_LOGIN_SERVER }}/${{ steps.set-tag.outputs.tag }}
           format: table
           exit-code: 1
           ignore-unfixed: true
@@ -128,7 +128,7 @@ jobs:
           trivyignores: .trivyignore
 
       - name: Push image to Azure Container Registry
-        run: docker push ${{ steps.set-tag.outputs.tag }}
+        run: docker push ${{ secrets.ACR_LOGIN_SERVER }}/${{ steps.set-tag.outputs.tag }}
 
   deploy:
     name: Deploy to Azure VM via Ansible
@@ -176,7 +176,7 @@ jobs:
       - name: Run Ansible deployment playbook
         run: |
           ansible-playbook -i /tmp/inventory.ini ansible/site.yml \
-            --extra-vars "app_image=${{ needs.build-and-push.outputs.image-tag }}" \
+            --extra-vars "app_image=${{ secrets.ACR_LOGIN_SERVER }}/${{ needs.build-and-push.outputs.image-tag }}" \
             --extra-vars "vault_db_password=${{ secrets.DB_PASSWORD }}" \
             --extra-vars "vault_ghcr_token=${{ secrets.ACR_PASSWORD }}" \
             --extra-vars "github_org=${{ secrets.ACR_USERNAME }}"
