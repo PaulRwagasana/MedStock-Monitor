@@ -38,12 +38,6 @@ terraform/azure/
 
 **registry** : Azure Container Registry. Admin account and anonymous pull are disabled; the app VM's managed identity is granted `acrPull`.
 
-## Security notes
-
-- The app VM and database have no public IP; the bastion is the single public entry point.
-- SSH uses key-based auth only (`disable_password_authentication = true`); the bastion NSG restricts SSH to `allowed_ssh_cidrs`.
-- ACR admin user is disabled — auth is via the compute VM's managed identity.
-- Checkov scans this directory in CI (`terraform/azure`); skipped checks and the reasoning behind each are documented in [`SECURITY.md`](../../SECURITY.md).
 
 ## Remote state
 
