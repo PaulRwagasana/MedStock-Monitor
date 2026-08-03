@@ -8,7 +8,7 @@
 
 | | URL |
 |---|---|
-| Live App | `http://<BASTION_PUBLIC_IP>:5000` *(update after deployment)* |
+| Live App | `http://<BASTION_PUBLIC_IP>:5000` |
 | Health Check | `http://<BASTION_PUBLIC_IP>:5000/health` |
 | GitHub Repository | https://github.com/PaulRwagasana/MedStock-Monitor |
 | GitHub Projects Board | https://github.com/users/PaulRwagasana/projects/2 |
