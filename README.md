@@ -8,7 +8,7 @@
 
 | | URL |
 |---|---|
-| Live App | `http://<BASTION_PUBLIC_IP>:5000` *(update after deployment)* |
+| Live App |
 | Health Check | `http://<BASTION_PUBLIC_IP>:5000/health` |
 | GitHub Repository | https://github.com/PaulRwagasana/MedStock-Monitor |
 | GitHub Projects Board | https://github.com/users/PaulRwagasana/projects/2 |
@@ -25,42 +25,61 @@ Many community pharmacies across Africa still manage medicine inventory using pa
 
 ## Architecture Diagram
 
-```mermaid
-flowchart TD
-    Dev["👩‍💻 Developer\npush / PR"] -->|triggers| GHA["GitHub Actions"]
-
-    subgraph GHA["GitHub Actions"]
-        CI["CI Pipeline (ci.yml)\n─────────────────\nESLint + Jest\nnpm audit\nTrivy image scan\nCheckov IaC scan"]
-        CD["CD Pipeline (cd.yml)\n─────────────────\nBuild Docker image\nPush to ACR\nRun Ansible playbook"]
-        CI -->|merge to main| CD
-    end
-
-    CD -->|SSH via Bastion| Bastion
-
-    subgraph Azure["Azure — medstock-rg"]
-        subgraph VNet["Virtual Network (medstock-vnet)"]
-            subgraph PublicSubnet["Public Subnet"]
-                Bastion["Bastion Host VM\n(Public IP)\nNSG: allow 22, 5000"]
-            end
-            subgraph PrivateSubnet["Private Subnet"]
-                AppVM["App VM (Ubuntu)\nNSG: deny internet inbound"]
-                subgraph Docker["Docker"]
-                    Backend["medstock-backend\n(Node/Express :5000)"]
-                    DB["medstock-db\n(PostgreSQL 15)"]
-                end
-                AppVM --> Docker
-            end
-        end
-        ACR["Azure Container Registry\n(medstockregistry)\nManaged Identity pull"]
-        AppVM -->|pull image| ACR
-    end
-
-    Bastion -->|proxy :5000| AppVM
-    User["🌐 User Browser"] -->|port 5000| Bastion
+```
+                          ┌─────────────────────────────────────────────────────┐
+                          │                   GitHub Actions                     │
+                          │                                                       │
+                          │  push/PR ──► CI Pipeline (ci.yml)                    │
+                          │               ├── ESLint + Jest                       │
+                          │               ├── npm audit                           │
+                          │               ├── Trivy image scan                    │
+                          │               └── Checkov IaC scan                   │
+                          │                                                       │
+                          │  merge to main ──► CD Pipeline (cd.yml)              │
+                          │                     ├── Build Docker image            │
+                          │                     ├── Push to ACR                  │
+                          │                     └── Run Ansible playbook          │
+                          └───────────────────────────┬─────────────────────────┘
+                                                      │ SSH via Bastion
+                                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          Azure (Resource Group: medstock-rg)                    │
+│                                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────────────┐  │
+│   │                    Virtual Network (medstock-vnet)                       │  │
+│   │                                                                          │  │
+│   │   ┌──────────────────────────┐    ┌───────────────────────────────────┐ │  │
+│   │   │     Public Subnet        │    │         Private Subnet            │ │  │
+│   │   │                          │    │                                   │ │  │
+│   │   │  ┌────────────────────┐  │    │  ┌─────────────────────────────┐ │ │  │
+│   │   │  │   Bastion Host VM  │  │    │  │      App VM (Ubuntu)        │ │ │  │
+│   │   │  │  (Public IP)       │──┼────┼─►│  ┌───────────────────────┐ │ │ │  │
+│   │   │  │  NSG: allow 22     │  │SSH │  │  │  Docker               │ │ │ │  │
+│   │   │  └────────────────────┘  │    │  │  │  ├── medstock-backend  │ │ │ │  │
+│   │   │                          │    │  │  │  │   (Node/Express)    │ │ │ │  │
+│   │   │  NSG: allow 80 inbound   │    │  │  │  └── medstock-db       │ │ │ │  │
+│   │   └──────────────────────────┘    │  │  │      (Postgres:15)    │ │ │ │  │
+│   │                                   │  │  └───────────────────────┘ │ │ │  │
+│   │                                   │  │  NSG: deny internet inbound │ │ │  │
+│   │                                   │  └─────────────────────────────┘ │ │  │
+│   │                                   │                                   │ │  │
+│   │                                   │  ┌─────────────────────────────┐ │ │  │
+│   │                                   │  │  Azure Database for          │ │ │  │
+│   │                                   │  │  PostgreSQL (Flexible)       │ │ │  │
+│   │                                   │  │  (managed, private endpoint) │ │ │  │
+│   │                                   │  └─────────────────────────────┘ │ │  │
+│   │                                   └───────────────────────────────────┘ │  │
+│   └─────────────────────────────────────────────────────────────────────────┘  │
+│                                                                                 │
+│   ┌─────────────────────────────────────────────────────────────────────────┐  │
+│   │          Azure Container Registry (ACR) — medstockregistry              │  │
+│   │          App VM pulls images via Managed Identity (no credentials)      │  │
+│   └─────────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Traffic flow:**
-1. User browser → Bastion Host public IP (port 5000)
+1. User browser → Bastion Host public IP (port 5000 proxied or direct)
 2. Bastion → App VM private IP (SSH for Ansible, app traffic on port 5000)
 3. App VM → ACR (pull image via Managed Identity)
 4. App container → Postgres container (Docker internal network)
@@ -109,17 +128,17 @@ MedStock-Monitor/
 │   └── script.js
 ├── terraform/
 │   ├── azure/                         # Cloud infrastructure (Summative)
-│   │   ├── main.tf
+│   │   ├── main.tf                    # Wires all modules together
 │   │   ├── variables.tf
 │   │   ├── outputs.tf
 │   │   ├── providers.tf
 │   │   ├── versions.tf
 │   │   └── modules/
-│   │       ├── network/
-│   │       ├── bastion/
-│   │       ├── compute/
-│   │       ├── db/
-│   │       └── registry/
+│   │       ├── network/               # VNet, subnets, NSGs
+│   │       ├── bastion/               # Bastion Host VM (public subnet)
+│   │       ├── compute/               # App VM (private subnet)
+│   │       ├── db/                    # Azure managed PostgreSQL
+│   │       └── registry/              # Azure Container Registry
 │   ├── main.tf                        # Docker provider (local dev)
 │   ├── compute.tf
 │   ├── variables.tf
@@ -133,8 +152,8 @@ MedStock-Monitor/
 │   └── group_vars/all.yml
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                     # CI — lint, test, scan
-│       └── cd.yml                     # CD — build, push, deploy
+│       ├── ci.yml                     # CI — lint, test, scan (PRs)
+│       └── cd.yml                     # CD — build, push, deploy (main)
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
@@ -190,6 +209,7 @@ psql -U <your_db_user> -d <your_db_name> -f migrations/001_create_tables.sql
 ```bash
 # 1. Provision infrastructure
 cd terraform/azure
+cp terraform.tfvars.example terraform.tfvars   # fill in your values
 terraform init
 terraform plan
 terraform apply
@@ -278,15 +298,14 @@ Copy `.env.example` to `.env` and fill in your values:
 | `iac-scan` | Checkov scans `terraform/` for misconfigurations |
 | `docker-build` | Builds image, scans with Trivy (fails on CRITICAL/HIGH), pushes to GHCR |
 
+The pipeline must pass before any PR can be merged to `main`.
+
 ### CD — runs on merge to `main`
 
-| Job | What it does |
-|-----|-------------|
-| `lint-and-test` | Re-runs all CI checks |
-| `security-scan` | Re-runs npm audit |
-| `iac-scan` | Re-runs Checkov |
-| `build-and-push` | Builds Docker image, Trivy scan, pushes to ACR |
-| `deploy` | Runs Ansible playbook via Bastion SSH — pulls new image, restarts service |
+1. Runs all CI checks
+2. Builds Docker image and pushes to Azure Container Registry (ACR)
+3. Authenticates to Azure
+4. Runs Ansible playbook against the App VM — pulls new image, restarts service
 
 ---
 
@@ -304,58 +323,15 @@ All cloud resources are provisioned via `terraform/azure/`. The configuration is
 
 ---
 
-## Terraform Usage
+## Configuration Management (Ansible)
 
-The Azure Terraform configuration is stored under `terraform/azure` and uses modular code to provision:
-
-- a virtual network with public and private subnets
-- a bastion host in the public subnet
-- a private compute VM in the private subnet
-- Azure Database for PostgreSQL Flexible Server
-- Azure Container Registry (ACR)
-
-### Prerequisites
-
-- Azure CLI logged in: `az login`
-- Terraform installed locally (or use Azure Cloud Shell)
-- Access to the target Azure subscription
-
-### Init and Plan
-
-Run these commands from the `terraform/azure` directory:
-
-```bash
-cd terraform/azure
-terraform init
-terraform plan -out=plan.out
-```
-
-### Authentication Options
-- Azure CLI auth: run `az login` before Terraform and do not set SP values.
-- Service principal auth: set the following values in `terraform.tfvars` or pass via `-var`:
-
-```hcl
-client_id       = "<YOUR-SP-CLIENT-ID>"
-client_secret   = "<YOUR-SP-CLIENT-SECRET>"
-tenant_id       = "<YOUR-TENANT-ID>"
-subscription_id = "<YOUR-SUBSCRIPTION-ID>"
-```
-
-### Notes
-
-- Root module files are in `terraform/azure/main.tf`, `providers.tf`, `variables.tf`, and `outputs.tf`.
-- Submodules are in `terraform/azure/modules/{network,bastion,compute,db,registry}`.
-- Sensitive values such as `db_administrator_password` should be provided via `terraform.tfvars` or environment variables.
-
----
-
-## Future Microservices Architecture
+The `ansible/site.yml` playbook runs against the App VM and:
 
 1. Installs Docker and required packages
 2. Configures UFW firewall (allow SSH + port 5000, deny all other inbound)
 3. Hardens SSH (disables root login and password authentication)
 4. Enables fail2ban
-5. Logs in to GHCR
+5. Logs in to GHCR (if package is private)
 6. Creates Docker network
 7. Starts PostgreSQL container
 8. Deploys MedStock Monitor container (pulls latest image)
@@ -382,14 +358,13 @@ Key measures in place:
 
 ## Sample Medicine Dataset
 
-| Member | Role |
-|--------|------|
-| Paul Rwagasana | DevOps Lead — Repository setup, CI, branch protection |
-| Mika Rurangwa | Backend Developer — Express API, data storage, endpoints |
-| Monica Akoi Dau Ahol | Frontend & Documentation — UI, README, sample data |
-| Cletus Ayeebo Abugre | Frontend Styling — UI design, CSS, visual presentation |
-| Munezero Hubert | Backend Developer — Terraform , Networking security rules |
-
+| Name | Category | Initial Qty | Threshold |
+|------|----------|-------------|-----------|
+| Paracetamol | Analgesics | 120 | 20 |
+| Amoxicillin | Antibiotics | 30 | 15 |
+| Coartem | Antimalarials | 8 | 10 |
+| Ibuprofen | Analgesics | 65 | 20 |
+| Metformin | Diabetes | 40 | 15 |
 
 ---
 
@@ -421,9 +396,8 @@ Click **Low Stock** in the sidebar to see all medicines below their minimum thre
 |--------|------|
 | Paul Rwagasana | DevOps Lead — CI/CD pipelines, repository setup, branch protection |
 | Mika Rurangwa | Backend Developer — Express API, PostgreSQL, Ansible |
-| Monica Akoi Dau Ahol | Frontend & Documentation — UI, README, CHANGELOG, architecture diagram |
+| Monica Akoi Dau Ahol | Frontend & Documentation — UI, README, health endpoint, CHANGELOG |
 | Cletus Ayeebo Abugre | Infrastructure & Security — Terraform compute, Docker security, IaC scanning |
-| Munezero Hubert | Infrastructure — Azure credentials, networking, ACR |
 
 ### Team Collaboration
 - GitHub Projects (Kanban) for task management
