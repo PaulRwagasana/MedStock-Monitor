@@ -8,7 +8,7 @@
 
 | | URL |
 |---|---|
-| Live App |
+| Live App | `http://<BASTION_PUBLIC_IP>:5000` |
 | Health Check | `http://<BASTION_PUBLIC_IP>:5000/health` |
 | GitHub Repository | https://github.com/PaulRwagasana/MedStock-Monitor |
 | GitHub Projects Board | https://github.com/users/PaulRwagasana/projects/2 |
@@ -25,57 +25,38 @@ Many community pharmacies across Africa still manage medicine inventory using pa
 
 ## Architecture Diagram
 
-```
-                          ┌─────────────────────────────────────────────────────┐
-                          │                   GitHub Actions                     │
-                          │                                                       │
-                          │  push/PR ──► CI Pipeline (ci.yml)                    │
-                          │               ├── ESLint + Jest                       │
-                          │               ├── npm audit                           │
-                          │               ├── Trivy image scan                    │
-                          │               └── Checkov IaC scan                   │
-                          │                                                       │
-                          │  merge to main ──► CD Pipeline (cd.yml)              │
-                          │                     ├── Build Docker image            │
-                          │                     ├── Push to ACR                  │
-                          │                     └── Run Ansible playbook          │
-                          └───────────────────────────┬─────────────────────────┘
-                                                      │ SSH via Bastion
-                                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                          Azure (Resource Group: medstock-rg)                    │
-│                                                                                 │
-│   ┌─────────────────────────────────────────────────────────────────────────┐  │
-│   │                    Virtual Network (medstock-vnet)                       │  │
-│   │                                                                          │  │
-│   │   ┌──────────────────────────┐    ┌───────────────────────────────────┐ │  │
-│   │   │     Public Subnet        │    │         Private Subnet            │ │  │
-│   │   │                          │    │                                   │ │  │
-│   │   │  ┌────────────────────┐  │    │  ┌─────────────────────────────┐ │ │  │
-│   │   │  │   Bastion Host VM  │  │    │  │      App VM (Ubuntu)        │ │ │  │
-│   │   │  │  (Public IP)       │──┼────┼─►│  ┌───────────────────────┐ │ │ │  │
-│   │   │  │  NSG: allow 22     │  │SSH │  │  │  Docker               │ │ │ │  │
-│   │   │  └────────────────────┘  │    │  │  │  ├── medstock-backend  │ │ │ │  │
-│   │   │                          │    │  │  │  │   (Node/Express)    │ │ │ │  │
-│   │   │  NSG: allow 80 inbound   │    │  │  │  └── medstock-db       │ │ │ │  │
-│   │   └──────────────────────────┘    │  │  │      (Postgres:15)    │ │ │ │  │
-│   │                                   │  │  └───────────────────────┘ │ │ │  │
-│   │                                   │  │  NSG: deny internet inbound │ │ │  │
-│   │                                   │  └─────────────────────────────┘ │ │  │
-│   │                                   │                                   │ │  │
-│   │                                   │  ┌─────────────────────────────┐ │ │  │
-│   │                                   │  │  Azure Database for          │ │ │  │
-│   │                                   │  │  PostgreSQL (Flexible)       │ │ │  │
-│   │                                   │  │  (managed, private endpoint) │ │ │  │
-│   │                                   │  └─────────────────────────────┘ │ │  │
-│   │                                   └───────────────────────────────────┘ │  │
-│   └─────────────────────────────────────────────────────────────────────────┘  │
-│                                                                                 │
-│   ┌─────────────────────────────────────────────────────────────────────────┐  │
-│   │          Azure Container Registry (ACR) — medstockregistry              │  │
-│   │          App VM pulls images via Managed Identity (no credentials)      │  │
-│   └─────────────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    Dev["👩💻 Developer\npush / PR"] -->|triggers| GHA
+
+    subgraph GHA["GitHub Actions"]
+        CI["CI Pipeline ci.yml\nESLint + Jest\nnpm audit\nTrivy image scan\nCheckov IaC scan"]
+        CD["CD Pipeline cd.yml\nBuild Docker image\nPush to ACR\nRun Ansible playbook"]
+        CI -->|merge to main| CD
+    end
+
+    CD -->|SSH via Bastion| Bastion
+
+    subgraph Azure["Azure — medstock-rg"]
+        subgraph VNet["Virtual Network medstock-vnet"]
+            subgraph PublicSubnet["Public Subnet"]
+                Bastion["Bastion Host VM\nPublic IP\nNSG: allow 22, 5000"]
+            end
+            subgraph PrivateSubnet["Private Subnet"]
+                AppVM["App VM Ubuntu\nNSG: deny internet inbound"]
+                subgraph Docker["Docker"]
+                    Backend["medstock-backend\nNode/Express :5000"]
+                    DB["medstock-db\nPostgreSQL 15"]
+                end
+                AppVM --> Docker
+            end
+        end
+        ACR["Azure Container Registry\nmedstockregistry\nManaged Identity pull"]
+        AppVM -->|pull image| ACR
+    end
+
+    Bastion -->|proxy :5000| AppVM
+    User["🌐 User Browser"] -->|port 5000| Bastion
 ```
 
 **Traffic flow:**
