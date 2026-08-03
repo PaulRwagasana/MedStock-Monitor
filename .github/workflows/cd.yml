@@ -159,20 +159,6 @@ jobs:
           ansible_ssh_private_key_file=/tmp/ssh_key
           EOF
 
-      - name: Debug - inspect BASTION_HOST secret for hidden characters
-        run: |
-          echo -n "${{ secrets.BASTION_HOST }}" | wc -c
-          echo -n "${{ secrets.BASTION_HOST }}" | xxd | head -5
-
-      - name: Debug - test connectivity to target via bastion
-        run: |
-          ssh -i /tmp/ssh_key -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.BASTION_HOST }} \
-            "nc -zv -w5 ${{ secrets.VM_PRIVATE_IP }} 22 || echo UNREACHABLE"
-
-      - name: Debug - print resolved image tag
-        run: |
-          echo "image-tag output: [${{ needs.build-and-push.outputs.image-tag }}]"
-
       - name: Run Ansible deployment playbook
         run: |
           ansible-playbook -i /tmp/inventory.ini ansible/site.yml \
