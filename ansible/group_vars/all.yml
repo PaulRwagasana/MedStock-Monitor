@@ -9,13 +9,13 @@ app_image: "ghcr.io/{{ github_org }}/{{ app_name }}:{{ image_tag }}"
 
 # Azure Terraform deployment.
 deploy_local_db: false
-db_host: medstock-psql-server-esrzd.postgres.database.azure.com
+db_host: medstockhbt-db.postgres.database.azure.com
 db_fqdn: "{{ db_host }}"
 db_port: "5432"
 db_name: medstock
-db_user: postgres
-# Change to the real Azure DB password before running the playbook.
-db_password: "ChangeThisPasswordBeforeRunningThePlaybook"
+db_user: psqladmin
+db_password: "CodeBlack123!"
+db_ssl: "true"
 vault_db_password: "{{ db_password }}"
 
 ghcr_package_is_private: false

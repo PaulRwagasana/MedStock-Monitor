@@ -132,6 +132,8 @@
           DB_USER: "{{ db_user }}"
           DB_PASSWORD: "{{ db_password | default(vault_db_password, true) }}"
           DB_NAME: "{{ db_name }}"
+          DB_SSL: "{{ db_ssl | default('true', true) }}"
+          PGSSLMODE: "require"
 
     - name: Wait for MedStock Monitor to answer
       ansible.builtin.uri:
